@@ -33,6 +33,8 @@ const ASSIST_DIST := 90.0
 # The Stretch ability multiplies it for a moment, which is how very wide balls are reached.
 const BASE_RANGE := 105.0
 const STRETCH_RANGE := 1.9
+## Launch angle (degrees) a paddle that can't smash never goes below.
+const NO_SMASH_ANGLE := 14.0
 const SMASH_FALLOFF := 0.6
 const SMASH_FLOOR := 0.5
 const BANK_SWIPE := 450.0 # sideways paddle speed that banks a Pinball shot off the wall
@@ -1273,6 +1275,9 @@ func _player_hit() -> void:
 	if perfect:
 		pref = 3.0
 		tz = Phys.LENGTH - 16.0
+	# a paddle that can't smash always sends the ball up in a normal arc, however high it is hit
+	if paddle_def.get("no_smash", false):
+		pref = maxf(pref, NO_SMASH_ANGLE)
 	var diving := is_diving()
 	if rim or diving:
 		tx += randf_range(-30.0, 30.0)
@@ -1317,7 +1322,7 @@ func _player_hit() -> void:
 		_trick("CURVE", 0.0, 1.0)
 	if absf(tx) > 52.0:
 		_trick("ANGLE", 0.0, 1.0)
-	if sol.v.y < 0.0 and h > 42.0:
+	if sol.v.y < 0.0 and h > 42.0 and not paddle_def.get("no_smash", false):
 		# a smash streak fades: each smash in the same rally pays 60% of the one before, down to a floor
 		_trick("SMASH", 0.0, maxf(SMASH_FLOOR, 2.0 * pow(SMASH_FALLOFF, smashes)))
 		smashes += 1

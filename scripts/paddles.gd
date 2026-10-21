@@ -2,6 +2,7 @@ class_name Paddles
 extends RefCounted
 ## Paddles. You hold one at a time; buying another in the shop swaps it in. Each has a face size, a
 ## reach (how far along the table the mouse can take it), a feel, and an ability on Space.
+## `no_smash` paddles (the Frying Pan) only ever return the ball in an arc.
 ## Abilities: `stretch` (the reach extends), `focus` (time slows) and `grab` (a much stronger hit assist).
 ## The effects themselves live in Game, keyed by `ability`.
 ## `tier` sets the price (a share of the cleared stage's target, like Balls) and how often it is offered.
@@ -20,8 +21,8 @@ const DEFS := {
 		"face": Color("fe5f55"), "rim": Color("c98b52"), "grip": Color("8a5a2f"), "handle": 1.0, "look": "classic",
 	},
 	"pan": {
-		"name": "Frying Pan", "desc": "Huge face, short reach.\nGrab: a strong hit\nassist for a moment.", "tier": 1,
-		"ability": "grab", "size": 1.4, "reach": 0.8, "speed": 0.85, "cd": 4.0, "dur": 1.2,
+		"name": "Frying Pan", "desc": "Huge face, short reach.\nReturns only: no smashes.\nGrab: strong hit assist.", "tier": 1,
+		"ability": "grab", "size": 1.4, "reach": 0.8, "speed": 0.85, "cd": 4.0, "dur": 1.2, "no_smash": true,
 		"face": Color("3a4048"), "rim": Color("a8b0ba"), "grip": Color("2a2f35"), "handle": 1.35, "look": "pan",
 	},
 	"needle": {

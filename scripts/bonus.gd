@@ -291,6 +291,8 @@ func _player_hit(b: Dictionary) -> void:
 	if perfect:
 		pref = 3.0
 		tz = Phys.LENGTH - 16.0
+	if game.paddle_def.get("no_smash", false):
+		pref = maxf(pref, Game.NO_SMASH_ANGLE)
 	if game.is_diving():
 		tx = clampf(tx + randf_range(-30.0, 30.0), -62.0, 62.0)
 		w += Vector3(randf_range(-20.0, 20.0), randf_range(-20.0, 20.0), 0.0)
