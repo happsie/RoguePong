@@ -7,7 +7,7 @@ extends RefCounted
 const STAGES := [
 	{
 		"name": "Surfer Dude", "title": "Gnarly with a paddle", "setting": 0, "target": 250, "diff": 0.0,
-		"skin": Color("f2b27a"), "shirt": Color("ffcf3a"), "hair": Color("ffe14d"), "acc": "shades",
+		"skin": Color("f2b27a"), "shirt": Color("ffcf3a"), "hair": Color("ffe14d"), "acc": "shades", "stripes": false,
 	},
 	{
 		"name": "Lifeguard Larry", "title": "Rescues balls, not points", "setting": 0, "target": 500, "diff": 0.1, "boss": true,

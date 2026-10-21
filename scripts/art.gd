@@ -168,6 +168,14 @@ static func goof(ci: CanvasItem, pos: Vector2, r: float, ch: Dictionary, look: V
 		for i in range(-2, 3):
 			var sx := bc.x + i * r * 0.36
 			ci.draw_line(Vector2(sx, bc.y - r * 0.6), Vector2(sx + i * r * 0.06, bc.y + r * 0.7), shirt.lightened(0.55), r * 0.14)
+	elif acc == "shades":
+		# open-collared floral shirt: a skin V at the neck, and a few flowers
+		ci.draw_colored_polygon(PackedVector2Array([bc + Vector2(-r * 0.32, -r * 0.8), bc + Vector2(r * 0.32, -r * 0.8), bc + Vector2(0, r * 0.1)]), skin)
+		for f: Vector2 in [Vector2(-0.55, -0.1), Vector2(0.5, 0.05), Vector2(-0.3, 0.42), Vector2(0.35, 0.5)]:
+			for k in 5:
+				var a: float = TAU * k / 5.0 + f.x
+				ci.draw_circle(bc + f * r + Vector2(cos(a), sin(a)) * r * 0.09, r * 0.07, CREAM)
+			ci.draw_circle(bc + f * r, r * 0.05, GOLD)
 	elif acc == "vampire":
 		ci.draw_colored_polygon(PackedVector2Array([bc + Vector2(-r * 0.3, -r * 0.7), bc + Vector2(r * 0.3, -r * 0.7), bc + Vector2(0, r * 0.5)]), CREAM)
 		for i in 3:
