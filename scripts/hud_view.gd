@@ -448,12 +448,16 @@ func _mouse(c: Vector2, kind: int, t: float) -> void:
 			for g: float in [-1.0, 0.0, 1.0]:
 				var a: Vector2 = m - dir * 34.0 + side * g * 14.0
 				draw_line(a, a - dir * 14.0, Color(Art.GOLD, 0.9), 3.0)
-		else:
-			var tip := c + dir * 40.0
-			var fade := Color(Art.GOLD, clampf(1.0 - (fposmod(t, 1.0) - 0.3) * 2.0, 0.0, 1.0))
-			draw_line(c + dir * 26.0, tip, fade, 4.0)
-			var side2 := Vector2(-dir.y, dir.x)
-			draw_colored_polygon(PackedVector2Array([tip + dir * 8.0, tip + side2 * 6.0, tip - side2 * 6.0]), fade)
+		# the arrow stays clear of the mouse: past its end for sideways flicks, beside it for up/down
+		var base := c + dir * (14.0 + 19.0 + 8.0)
+		var tip := base + dir * 18.0
+		if dir.y != 0.0:
+			base = c + Vector2(40.0, 0.0) - dir * 12.0
+			tip = base + dir * 26.0
+		var fade := Color(Art.GOLD, 1.0 if u < 1.0 else clampf(1.0 - (fposmod(t, 1.0) - 0.3) * 1.6, 0.0, 1.0))
+		draw_line(base, tip, fade, 5.0)
+		var side2 := Vector2(-dir.y, dir.x)
+		draw_colored_polygon(PackedVector2Array([tip + dir * 11.0, tip + side2 * 8.0, tip - side2 * 8.0]), fade)
 	var body := Rect2(m - Vector2(19, 27), Vector2(38, 54))
 	var click := clampf(sin(t * 4.0) * 3.0, 0.0, 1.0) if kind == 2 else 0.0
 	if kind == 2:
