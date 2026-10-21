@@ -387,27 +387,27 @@ func _top_runs_panel() -> void:
 func _controls_panel() -> void:
 	var t := game.time
 	var has_ability: bool = game.paddle_def.ability != ""
-	Art.vivid(self, Rect2(285, -240, 340, 352 if has_ability else 282), Color("0f4c9a"), Color("0b1f55"), t, 0.15, 20.0)
-	Art.text(self, "CONTROLS", Vector2(455, -204), 24, Art.GOLD)
-	var label_x := 448.0
-	var rows := [-150.0, -80.0, -10.0, 60.0]
+	Art.vivid(self, Rect2(330, -240, 290, 430 if has_ability else 340), Color("0f4c9a"), Color("0b1f55"), t, 0.15, 20.0)
+	Art.text(self, "CONTROLS", Vector2(475, -204), 24, Art.GOLD)
+	var label_x := 478.0
+	var rows := [-146.0, -56.0, 34.0, 124.0]
 	var lab := Color(1, 1, 1, 0.95)
 	# paddle follows the mouse, across the whole table
-	_mouse(Vector2(360, rows[0]), 0, t)
+	_mouse(Vector2(408, rows[0]), 0, t)
 	Art.text(self, "PADDLE", Vector2(label_x + 36, rows[0] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
 	Art.text(self, "move mouse", Vector2(label_x + 36, rows[0] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
 	# spin: swipe across the ball
-	_mouse(Vector2(360, rows[1]), 1, t)
+	_mouse(Vector2(408, rows[1]), 1, t)
 	Art.text(self, "SPIN", Vector2(label_x + 36, rows[1] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
 	Art.text(self, "flick as you hit", Vector2(label_x + 36, rows[1] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
 	# lunge: left click
-	_mouse(Vector2(360, rows[2]), 2, t)
+	_mouse(Vector2(408, rows[2]), 2, t)
 	Art.text(self, "LUNGE", Vector2(label_x + 36, rows[2] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
 	Art.text(self, "left click", Vector2(label_x + 36, rows[2] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
 	# the paddle's ability, if it has one
 	if not has_ability:
 		return
-	_keycap(Vector2(360, rows[3]), Vector2(96, 42), "SPACE", maxf(0.0, sin(t * 3.0 + 1.5) * 2.0), 17)
+	_keycap(Vector2(400, rows[3]), Vector2(96, 42), "SPACE", maxf(0.0, sin(t * 3.0 + 1.5) * 2.0), 17)
 	Art.text(self, Paddles.ABILITY_NAMES[game.paddle_def.ability], Vector2(label_x + 36, rows[3] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
 	Art.text(self, "paddle ability", Vector2(label_x + 36, rows[3] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
 
