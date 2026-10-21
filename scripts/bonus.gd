@@ -291,8 +291,9 @@ func _player_hit(b: Dictionary) -> void:
 	if perfect:
 		pref = 3.0
 		tz = Phys.LENGTH - 16.0
-	if game.paddle_def.get("no_smash", false):
-		pref = maxf(pref, Game.NO_SMASH_ANGLE)
+	if game.paddle_def.get("plain", false):
+		w = Vector3.ZERO
+		pref = maxf(pref, Game.PLAIN_ANGLE)
 	var sol := Phys.solve_robust(ball.p, 1.0, tx, tz, w, pref)
 	ball.v = sol.v
 	ball.w = sol.w

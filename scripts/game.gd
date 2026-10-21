@@ -34,8 +34,8 @@ const ASSIST_DIST := 90.0
 const BASE_RANGE := 100.0
 ## The farthest from the middle the opponent will send a ball across your paddle plane, so it is always reachable.
 const OPP_REACH := 95.0
-## Launch angle (degrees) a paddle that can't smash never goes below.
-const NO_SMASH_ANGLE := 14.0
+## Launch angle (degrees) a plain paddle never goes below.
+const PLAIN_ANGLE := 14.0
 const SMASH_FALLOFF := 0.6
 const SMASH_FLOOR := 0.5
 const BANK_SWIPE := 450.0 # sideways paddle speed that banks a Pinball shot off the wall
@@ -1270,20 +1270,30 @@ func _player_hit() -> void:
 	if perfect:
 		pref = 3.0
 		tz = Phys.LENGTH - 16.0
-	# a paddle that can't smash always sends the ball up in a normal arc, however high it is hit
-	if paddle_def.get("no_smash", false):
-		pref = maxf(pref, NO_SMASH_ANGLE)
+	# a plain paddle (the Frying Pan) puts no spin on the ball and never hits down: only a flat return
+	var plain: bool = paddle_def.get("plain", false)
+	if plain:
+		w = Vector3.ZERO
+		pref = maxf(pref, PLAIN_ANGLE)
 	if rim:
 		tx += randf_range(-30.0, 30.0)
-		w += Vector3(randf_range(-20.0, 20.0), randf_range(-20.0, 20.0), 0.0)
+		if not plain:
+			w += Vector3(randf_range(-20.0, 20.0), randf_range(-20.0, 20.0), 0.0)
 		tx = clampf(tx, -62.0, 62.0)
 
 	# With side walls up, a hard sideways swipe banks the ball off the wall on that side.
 	var bank := 0.0
-	if Phys.walls and absf(pv.x) > BANK_SWIPE and not rim:
+	if Phys.walls and absf(pv.x) > BANK_SWIPE and not rim and not plain:
 		bank = signf(pv.x)
 		tx = clampf(off.x * 0.5 - bank * 20.0, -50.0, 50.0)
 	var sol := Phys.solve_robust(ball.p, 1.0, tx, tz, w, pref, bank)
+	var tries := 0
+	while plain and sol.v.y < 0.0 and tries < 6:
+		# still heading down: lob it a little higher and shorter until it is an arc
+		tries += 1
+		pref += 6.0
+		tz = maxf(tz - 15.0, Phys.NET_Z + 30.0)
+		sol = Phys.solve_robust(ball.p, 1.0, tx, tz, w, pref, bank)
 	w = sol.w
 	net_hit_since_hit = false
 	ball.v = sol.v
@@ -1316,7 +1326,7 @@ func _player_hit() -> void:
 		_trick("CURVE", 0.0, 1.0)
 	if absf(tx) > 52.0:
 		_trick("ANGLE", 0.0, 1.0)
-	if sol.v.y < 0.0 and h > 42.0 and not paddle_def.get("no_smash", false):
+	if sol.v.y < 0.0 and h > 42.0 and not plain:
 		# a smash streak fades: each smash in the same rally pays 60% of the one before, down to a floor
 		_trick("SMASH", 0.0, maxf(SMASH_FLOOR, 2.0 * pow(SMASH_FALLOFF, smashes)))
 		smashes += 1
