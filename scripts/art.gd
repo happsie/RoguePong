@@ -140,7 +140,7 @@ static func googly(ci: CanvasItem, e: Vector2, r: float, look: Vector2, t: float
 
 
 ## Goofy front-facing opponent: huge head, googly eyes, big nose, stubby torso. `ch` is a Roster entry
-## (skin, shirt, hair, acc, stripes); `acc` picks the costume. `pos` is the head centre, `r` the head
+## (skin, shirt, hair, acc); `acc` picks the costume. `pos` is the head centre, `r` the head
 ## radius, `mood` > 0 grins and < 0 yells.
 static func goof(ci: CanvasItem, pos: Vector2, r: float, ch: Dictionary, look: Vector2, mood: float, t: float) -> void:
 	var skin: Color = ch.skin
@@ -164,10 +164,48 @@ static func goof(ci: CanvasItem, pos: Vector2, r: float, ch: Dictionary, look: V
 	ci.draw_circle(c + Vector2(6, 10), r + 5.0, Color(0, 0, 0, 0.35))
 	ellipse(ci, bc, r * squash + 4.0, r * 0.85 + 4.0, INK)
 	ellipse(ci, bc, r * squash, r * 0.85, shirt)
-	if ch.get("stripes", true):
-		for i in range(-2, 3):
-			var sx := bc.x + i * r * 0.36
-			ci.draw_line(Vector2(sx, bc.y - r * 0.6), Vector2(sx + i * r * 0.06, bc.y + r * 0.7), shirt.lightened(0.55), r * 0.14)
+	if acc == "cap":
+		# lifeguard cross
+		ci.draw_rect(Rect2(bc.x - r * 0.1, bc.y - r * 0.4, r * 0.2, r * 0.8), Color.WHITE)
+		ci.draw_rect(Rect2(bc.x - r * 0.4, bc.y - r * 0.1, r * 0.8, r * 0.2), Color.WHITE)
+	elif acc == "beanie":
+		# zip-up jacket with two pockets
+		for s in [-1.0, 1.0]:
+			ci.draw_rect(Rect2(bc.x + s * r * 0.5 - r * 0.2, bc.y + r * 0.05, r * 0.4, r * 0.3), shirt.darkened(0.25))
+		ci.draw_line(bc + Vector2(0, -r * 0.75), bc + Vector2(0, r * 0.8), CREAM, 4.0)
+		ci.draw_circle(bc + Vector2(0, -r * 0.68), r * 0.07, GOLD)
+	elif acc == "fur":
+		# fluffy pale belly, scalloped along the top like fur
+		ellipse(ci, bc + Vector2(0, r * 0.15), r * 0.58, r * 0.55, Color("a8dcf5"))
+		for k in 5:
+			ci.draw_circle(bc + Vector2((k - 2) * r * 0.22, -r * 0.34 + absf(k - 2) * r * 0.06), r * 0.13, Color("a8dcf5"))
+	elif acc == "antenna":
+		# space suit: a gold badge over a belt
+		ci.draw_line(bc + Vector2(-r * 0.8, r * 0.38), bc + Vector2(r * 0.8, r * 0.38), INK, r * 0.12)
+		ci.draw_circle(bc + Vector2(0, -r * 0.15), r * 0.22, INK)
+		ci.draw_circle(bc + Vector2(0, -r * 0.15), r * 0.16, GOLD)
+	elif acc == "fishbowl":
+		# chest pack with two dials
+		ci.draw_rect(Rect2(bc.x - r * 0.55, bc.y - r * 0.05, r * 1.1, r * 0.55), INK)
+		for s in [-1.0, 1.0]:
+			var dial := bc + Vector2(s * r * 0.26, r * 0.22)
+			ci.draw_circle(dial, r * 0.2, CREAM)
+			ci.draw_line(dial, dial + Vector2(cos(t * 2.0 + s), sin(t * 2.0 + s)) * r * 0.15, RED, 3.0)
+	elif acc == "pumpkin":
+		# vest: white collar and gold buttons
+		ci.draw_colored_polygon(PackedVector2Array([bc + Vector2(-r * 0.45, -r * 0.8), bc + Vector2(0, -r * 0.55), bc + Vector2(-r * 0.05, -r * 0.2)]), CREAM)
+		ci.draw_colored_polygon(PackedVector2Array([bc + Vector2(r * 0.45, -r * 0.8), bc + Vector2(0, -r * 0.55), bc + Vector2(r * 0.05, -r * 0.2)]), CREAM)
+		for i in 3:
+			ci.draw_circle(bc + Vector2(0, -r * 0.05 + i * r * 0.28), r * 0.09, INK)
+			ci.draw_circle(bc + Vector2(0, -r * 0.05 + i * r * 0.28), r * 0.06, GOLD)
+	elif acc == "visor":
+		# a pixel heart
+		var heart_rows := ["01010", "11111", "11111", "01110", "00100"]
+		var px := r * 0.14
+		for y in heart_rows.size():
+			for x in 5:
+				if heart_rows[y][x] == "1":
+					ci.draw_rect(Rect2(bc.x + (x - 2.5) * px, bc.y - r * 0.3 + y * px, px, px), CREAM)
 	elif acc == "shades":
 		# open-collared floral shirt: a skin V at the neck, and a few flowers
 		ci.draw_colored_polygon(PackedVector2Array([bc + Vector2(-r * 0.32, -r * 0.8), bc + Vector2(r * 0.32, -r * 0.8), bc + Vector2(0, r * 0.1)]), skin)

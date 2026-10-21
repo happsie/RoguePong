@@ -340,7 +340,7 @@ func _intro(st: Dictionary) -> void:
 		Art.text(self, head, Vector2(0, -252), 22, Color(1, 1, 1, 0.85))
 		var mood := 1.0 if fposmod(game.time, 3.0) < 1.5 else 0.0
 		Art.goof(self, Vector2(0, -130), 62.0, st, Vector2(sin(game.time * 1.5) * 100.0, 40.0), mood, game.time)
-		Art.text(self, ("BOSS:  " if boss else "VS  ") + str(st.name).to_upper(), Vector2(0, 50), 58, Art.GOLD if boss else Art.CREAM)
+		Art.text(self, str(st.name).to_upper(), Vector2(0, 50), 58, Art.GOLD if boss else Art.CREAM)
 		Art.text(self, str(st.title), Vector2(0, 88), 24, Color(1, 1, 1, 0.8))
 		Art.text(self, "SCORE  " + Art.fmt(st.target) + "  TO ADVANCE", Vector2(0, 156), 36, Art.GOLD)
 		_controls_panel()
@@ -472,8 +472,6 @@ func _clear() -> void:
 	Art.text(self, "STAGE CLEAR!", Vector2(640, 250), 84, Art.GOLD)
 	Art.text(self, "SCORE  %s  /  %s" % [Art.fmt(game.score), Art.fmt(game.target)], Vector2(640, 320), 34, Art.CREAM)
 	Art.text(self, "RUN TOTAL  " + Art.fmt(game.run_score), Vector2(640, 362), 22, Color(1, 1, 1, 0.9))
-	var nxt: Dictionary = Roster.STAGES[mini(game.stage + 1, Roster.count() - 1)]
-	Art.text(self, "NEXT:  %s  vs  %s" % [Scenery.NAMES[nxt.setting], nxt.name], Vector2(640, 424), 26, Art.GREEN.lightened(0.2))
 	var more := "" if game.state == Game.S.VICTORY else "   -   %s PLINKS" % Art.fmt(game.plinks)
 	Art.text(self, "TO THE BALL SHOP" + more, Vector2(640, 470), 18, Art.GREEN.lightened(0.2))
 	_blink_prompt("CLICK TO CONTINUE", 530)
@@ -698,7 +696,5 @@ func _bonus_end_card() -> void:
 		_card(Rect2(220, 150, 840, 420), Color("3a1050"), Color("8a1030"), 0.2)
 		Art.text(self, "BONUS FAILED", Vector2(640, 250), 80, Art.RED)
 		Art.text(self, "No reward this time.", Vector2(640, 330), 30, Color(1, 1, 1, 0.85))
-	var nxt: Dictionary = Roster.STAGES[mini(game.stage + 1, Roster.count() - 1)]
-	Art.text(self, "NEXT:  %s  vs  %s" % [Scenery.NAMES[nxt.setting], nxt.name], Vector2(640, 440), 24, Art.GREEN.lightened(0.2))
 	_blink_prompt("CLICK TO CONTINUE", 520)
 	_reset_tf()

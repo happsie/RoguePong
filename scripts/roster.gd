@@ -7,7 +7,7 @@ extends RefCounted
 const STAGES := [
 	{
 		"name": "Surfer Dude", "title": "Gnarly with a paddle", "setting": 0, "target": 250, "diff": 0.0,
-		"skin": Color("f2b27a"), "shirt": Color("ffcf3a"), "hair": Color("ffe14d"), "acc": "shades", "stripes": false,
+		"skin": Color("f2b27a"), "shirt": Color("ffcf3a"), "hair": Color("ffe14d"), "acc": "shades",
 	},
 	{
 		"name": "Lifeguard Larry", "title": "Rescues balls, not points", "setting": 0, "target": 500, "diff": 0.1, "boss": true,
@@ -31,7 +31,7 @@ const STAGES := [
 	},
 	{
 		"name": "Count Drac", "title": "Never misses after dark", "setting": 3, "target": 4500, "diff": 0.66,
-		"skin": Color("e6e0f0"), "shirt": Color("2a1a3a"), "hair": Color("14101c"), "acc": "vampire", "stripes": false,
+		"skin": Color("e6e0f0"), "shirt": Color("2a1a3a"), "hair": Color("14101c"), "acc": "vampire",
 	},
 	{
 		"name": "The Pumpkin King", "title": "Smashing, and not just pumpkins", "setting": 3, "target": 6000, "diff": 0.78, "boss": true,
@@ -43,7 +43,7 @@ const STAGES := [
 	},
 	{
 		"name": "Boss Bot 9000", "title": "Final boss. Has never lost.", "setting": 4, "target": 12000, "diff": 1.0, "boss": true,
-		"skin": Color("aab6c8"), "shirt": Color("5a6a80"), "hair": Color("fe5f55"), "acc": "robot", "stripes": false,
+		"skin": Color("aab6c8"), "shirt": Color("5a6a80"), "hair": Color("fe5f55"), "acc": "robot",
 	},
 ]
 
