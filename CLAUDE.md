@@ -67,6 +67,6 @@ After each boss (stages 2, 4, 6, 8) the shop leads to an offer card instead of t
 
 There is no player body and no walking. The mouse moves the paddle across the whole table (`Game.base_range()`, scaled by the paddle's `reach`); left click lunges; **Space** fires the paddle's ability. A hand and forearm (`Art.hand`) hold the handle.
 
-- Abilities, in `Game._ability`: `stretch` widens the reach for a moment (hits made out there are a DIVE, wild but they pay), `focus` slows time (`_ball_time`), `grab` boosts the hit assist (`_assist`). Cooldown and duration are per paddle.
+- Abilities are optional, fired with Space in `Game._ability`: `focus` slows time (`_ball_time`), `grab` boosts the hit assist (`_assist`). Cooldown and duration are per paddle. The Classic has none. The opponent never sends a ball across your plane farther out than `OPP_REACH`, so everything is reachable with the mouse.
 - `Game.equip_paddle(id)` swaps the held paddle (size, reach, speed, ability). A new run starts with the Classic. `--paddle=<id>` starts a run with another one.
 - The shop's third slot is often a paddle offer (always after stage 1): ids are `paddle:<id>` in `shop_offers`, priced by `Game.offer_price`. Buying one replaces the one you hold.

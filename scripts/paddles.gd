@@ -3,7 +3,7 @@ extends RefCounted
 ## Paddles. You hold one at a time; buying another in the shop swaps it in. Each has a face size, a
 ## reach (how far along the table the mouse can take it), a feel, and an ability on Space.
 ## `no_smash` paddles (the Frying Pan) only ever return the ball in an arc.
-## Abilities: `stretch` (the reach extends), `focus` (time slows) and `grab` (a much stronger hit assist).
+## Abilities (all optional, on Space): `focus` (time slows) and `grab` (a much stronger hit assist).
 ## The effects themselves live in Game, keyed by `ability`.
 ## `tier` sets the price (a share of the cleared stage's target, like Balls) and how often it is offered.
 
@@ -16,8 +16,8 @@ const PREFIX := "paddle:"
 ## length, `look` for the decoration.
 const DEFS := {
 	"classic": {
-		"name": "Classic", "desc": "Balanced.\nStretch: reach wide\nballs for a moment.", "tier": 0,
-		"ability": "stretch", "size": 1.0, "reach": 1.0, "speed": 1.0, "cd": 3.0, "dur": 0.5,
+		"name": "Classic", "desc": "Balanced.\nNo tricks.", "tier": 0,
+		"ability": "", "size": 1.0, "reach": 1.0, "speed": 1.0, "cd": 0.0, "dur": 0.0,
 		"face": Color("fe5f55"), "rim": Color("c98b52"), "grip": Color("8a5a2f"), "handle": 1.0, "look": "classic",
 	},
 	"pan": {
@@ -27,17 +27,17 @@ const DEFS := {
 	},
 	"needle": {
 		"name": "Needle", "desc": "Tiny but quick, with\nlong reach. Focus:\ntime slows down.", "tier": 1,
-		"ability": "focus", "size": 0.75, "reach": 1.2, "speed": 1.3, "cd": 5.0, "dur": 0.9,
+		"ability": "focus", "size": 0.75, "reach": 1.15, "speed": 1.3, "cd": 5.0, "dur": 0.9,
 		"face": Color("ff6bd6"), "rim": Color("fff4dc"), "grip": Color("1fb8a0"), "handle": 1.1, "look": "classic",
 	},
 	"gold": {
-		"name": "Golden Paddle", "desc": "Bigger face, long reach.\nStretch, ready sooner\nand lasts longer.", "tier": 3,
-		"ability": "stretch", "size": 1.15, "reach": 1.25, "speed": 1.0, "cd": 2.0, "dur": 0.65,
+		"name": "Golden Paddle", "desc": "Bigger face, long reach.\nGrab: strong hit assist,\nback again quickly.", "tier": 3,
+		"ability": "grab", "size": 1.15, "reach": 1.15, "speed": 1.0, "cd": 2.5, "dur": 1.0,
 		"face": Color("eac058"), "rim": Color("fff1b0"), "grip": Color("c9962a"), "handle": 1.0, "look": "gold",
 	},
 }
 
-const ABILITY_NAMES := {"stretch": "STRETCH", "focus": "FOCUS", "grab": "GRAB"}
+const ABILITY_NAMES := {"focus": "FOCUS", "grab": "GRAB"}
 
 
 static func is_offer(id: String) -> bool:

@@ -251,10 +251,6 @@ func _player() -> void:
 	var lean := clampf(pad.x / game.base_range(), -1.0, 1.0) * 0.6
 	var tilt := lean + clampf(game.paddle_vel.x * -0.0004, -0.35, 0.35) + sin(game.paddle_wobble * 40.0) * game.paddle_wobble * 0.5
 	var skin := game.paddle_def
-	# while Stretch runs, streaks trail the paddle so it reads as reaching
-	if game.ability_t > 0.0 and game.paddle_def.ability == "stretch":
-		for k in 4:
-			Art.paddle_disc(self, pp - Vector2(signf(pad.x) * (k + 1) * pr * 0.5, 0.0), pr, tilt, 0.12 * alpha, skin)
 	Art.paddle_disc(self, pp, pr, tilt, alpha, skin)
 	Art.hand(self, pp, pr, tilt, alpha, skin.handle)
 

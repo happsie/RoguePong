@@ -87,6 +87,8 @@ func _settings() -> void:
 ## bar that drains while the ability is running.
 func _ability_meter() -> void:
 	var def: Dictionary = game.paddle_def
+	if def.ability == "":
+		return
 	var ready := game.ability_cd <= 0.0
 	var active := game.ability_t > 0.0
 	var x := 1040.0
@@ -352,6 +354,8 @@ func _intro(st: Dictionary) -> void:
 		Art.text(self, str(st.title), Vector2(0, 88), 24, Color(1, 1, 1, 0.8))
 		Art.text(self, "SCORE  " + Art.fmt(st.target) + "  TO ADVANCE", Vector2(0, 156), 36, Art.GOLD)
 		_controls_panel()
+		if game.stage == 0:
+			_top_runs_panel()
 		if closing and game.state_t > Game.INTRO_CLOSE + 0.3:
 			var blink := 0.55 + 0.45 * sin(game.time * 5.0)
 			Art.text(self, "CLICK TO START", Vector2(0, 336), 30, Color(1, 1, 1, blink))
@@ -360,11 +364,30 @@ func _intro(st: Dictionary) -> void:
 		_countdown()
 
 
+## The best saved runs, on the left of the first intro card (mirrors the controls panel).
+## Drawn inside the card's centred transform, so coordinates are relative to the screen centre.
+func _top_runs_panel() -> void:
+	var n := maxi(Runs.top.size(), 1)
+	Art.vivid(self, Rect2(-620, -240, 290, 96 + n * 36), Color("0f4c9a"), Color("0b1f55"), game.time, 0.15, 20.0)
+	Art.text(self, "TOP RUNS", Vector2(-475, -204), 24, Art.GOLD)
+	if Runs.top.is_empty():
+		Art.text(self, "no runs yet", Vector2(-475, -150), 18, Color(1, 1, 1, 0.7))
+		return
+	for i in Runs.top.size():
+		var e: Dictionary = Runs.top[i]
+		var y := -156.0 + i * 36.0
+		var col: Color = Art.GOLD if i == 0 else Color(1, 1, 1, 0.95)
+		Art.text(self, "%d." % (i + 1), Vector2(-600, y + 8), 20, col, HORIZONTAL_ALIGNMENT_LEFT)
+		Art.text(self, Art.fmt(e.score), Vector2(-566, y + 8), 20, col, HORIZONTAL_ALIGNMENT_LEFT)
+		Art.text(self, "WON" if e.won else "STAGE %d" % e.stage, Vector2(-350, y + 8), 16, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_RIGHT)
+
+
 ## Keybinds on the right of the intermission card, drawn with real-looking keycaps and a mouse.
 ## Drawn inside the card's centred transform, so coordinates are relative to the screen centre.
 func _controls_panel() -> void:
 	var t := game.time
-	Art.vivid(self, Rect2(330, -240, 290, 330), Color("0f4c9a"), Color("0b1f55"), t, 0.15, 20.0)
+	var has_ability: bool = game.paddle_def.ability != ""
+	Art.vivid(self, Rect2(330, -240, 290, 330 if has_ability else 262), Color("0f4c9a"), Color("0b1f55"), t, 0.15, 20.0)
 	Art.text(self, "CONTROLS", Vector2(475, -204), 24, Art.GOLD)
 	var label_x := 478.0
 	var rows := [-150.0, -86.0, -22.0, 42.0]
@@ -381,7 +404,9 @@ func _controls_panel() -> void:
 	_mouse(Vector2(408, rows[2]), 2, t)
 	Art.text(self, "LUNGE", Vector2(label_x + 36, rows[2] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
 	Art.text(self, "left click", Vector2(label_x + 36, rows[2] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
-	# the paddle's ability
+	# the paddle's ability, if it has one
+	if not has_ability:
+		return
 	_keycap(Vector2(400, rows[3]), Vector2(96, 42), "SPACE", maxf(0.0, sin(t * 3.0 + 1.5) * 2.0), 17)
 	Art.text(self, Paddles.ABILITY_NAMES[game.paddle_def.ability], Vector2(label_x + 36, rows[3] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
 	Art.text(self, "paddle ability", Vector2(label_x + 36, rows[3] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)

@@ -30,9 +30,10 @@ const ASSIST_CAPTURE := 27.0
 const ASSIST_PULL := 0.35
 const ASSIST_DIST := 90.0
 # How far along the table the mouse can take the paddle (a paddle scales this with its `reach`).
-# The Stretch ability multiplies it for a moment, which is how very wide balls are reached.
-const BASE_RANGE := 105.0
-const STRETCH_RANGE := 1.9
+# The screen only shows about 115 cm either side at the paddle's depth, so there is no point reaching further.
+const BASE_RANGE := 100.0
+## The farthest from the middle the opponent will send a ball across your paddle plane, so it is always reachable.
+const OPP_REACH := 95.0
 ## Launch angle (degrees) a paddle that can't smash never goes below.
 const NO_SMASH_ANGLE := 14.0
 const SMASH_FALLOFF := 0.6
@@ -192,6 +193,7 @@ var opp_wide_chance := 0.2
 
 func _ready() -> void:
 	randomize()
+	Runs.load_runs()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--stage="):
 			stage = clampi(int(a.substr(8)) - 1, 0, Roster.count() - 1)
@@ -372,9 +374,9 @@ func _lunge() -> void:
 	Audio.play("swoosh")
 
 
-## The paddle's ability, on Space: Stretch widens the reach, Focus slows time, Grab boosts the hit assist.
+## The paddle's ability, on Space (not every paddle has one): Focus slows time, Grab boosts the hit assist.
 func _ability() -> void:
-	if ability_cd > 0.0 or not (state == S.READY or state == S.RALLY or state == S.POINT_OVER):
+	if paddle_def.ability == "" or ability_cd > 0.0 or not (state == S.READY or state == S.RALLY or state == S.POINT_OVER):
 		return
 	ability_t = paddle_def.dur
 	ability_cd = paddle_def.cd
@@ -387,19 +389,9 @@ func _ability_on(kind: String) -> bool:
 	return ability_t > 0.0 and paddle_def.ability == kind
 
 
-## The widest the paddle can go with no ability running.
+## How far along the table the mouse can take the paddle.
 func base_range() -> float:
 	return BASE_RANGE * float(paddle_def.reach)
-
-
-## How far along the table the paddle can go right now.
-func paddle_range() -> float:
-	return base_range() * (STRETCH_RANGE if _ability_on("stretch") else 1.0)
-
-
-## A hit made out beyond the normal reach (only possible mid-Stretch) is a DIVE: wild, but it pays.
-func is_diving() -> bool:
-	return absf(paddle.x) > base_range() + 4.0
 
 
 func equip_paddle(id: String) -> void:
@@ -700,6 +692,8 @@ func _buy_paddle(i: int) -> void:
 func _stage_clear() -> void:
 	run_score += score
 	best = maxi(best, run_score)
+	if stage >= Roster.count() - 1:
+		Runs.record(run_score, stage + 1, true)
 	state = S.VICTORY if stage >= Roster.count() - 1 else S.CLEAR
 	state_t = 0.0
 	banner = ""
@@ -820,7 +814,7 @@ func _update_paddle(delta: float) -> void:
 	hit_cd = maxf(0.0, hit_cd - delta)
 	opp_hit_cd = maxf(0.0, opp_hit_cd - delta)
 	var target := _bot_target() if bot else Cam.unproject(get_global_mouse_position(), PADDLE_Z)
-	var rng := paddle_range()
+	var rng := base_range()
 	target = Vector2(clampf(target.x, -rng, rng), clampf(target.y, -35.0, 85.0))
 	var reach := 0.0
 	if lunge_t > 0.0:
@@ -845,7 +839,7 @@ func _update_paddle(delta: float) -> void:
 ## only nudged a little towards it, and the hit itself is forgiven (see `assist_lock`: a ball that
 ## crosses counts as a hit and lands near the sweet spot). Nothing latches: it is recomputed every
 ## frame, so there is nothing to get stuck on. The paddle stays within its reach, so the widest
-## balls still need a Stretch.
+## balls are eased so they never cross the plane out of reach (see `_opp_hit`).
 func _assist(target: Vector2) -> Vector2:
 	var dz := ball.p.z - paddle.z
 	assist_lock = false
@@ -875,8 +869,8 @@ func _bot_target() -> Vector2:
 		if pr.z > 0.0:
 			if ball.p.z < 80.0 and lunge_cd <= 0.0 and randf() < 0.05:
 				_lunge()
-			# the bot stretches for balls beyond its normal reach
-			if absf(pr.x) > base_range() - 6.0 and ability_cd <= 0.0:
+			# the bot uses the paddle's ability when the ball is close
+			if ball.p.z < 140.0 and ability_cd <= 0.0 and paddle_def.ability != "":
 				_ability()
 			return Vector2(pr.x, pr.y) + Vector2.from_angle(float(bounces) * 2.4 + returns) * bot_err
 	return Vector2(0.0, 30.0)
@@ -1075,6 +1069,7 @@ func _after_point() -> void:
 	if score >= target:
 		_stage_clear()
 	elif lives <= 0:
+		Runs.record(run_score + score, stage + 1, false)
 		state = S.GAME_OVER
 		state_t = 0.0
 		banner = ""
@@ -1278,15 +1273,14 @@ func _player_hit() -> void:
 	# a paddle that can't smash always sends the ball up in a normal arc, however high it is hit
 	if paddle_def.get("no_smash", false):
 		pref = maxf(pref, NO_SMASH_ANGLE)
-	var diving := is_diving()
-	if rim or diving:
+	if rim:
 		tx += randf_range(-30.0, 30.0)
 		w += Vector3(randf_range(-20.0, 20.0), randf_range(-20.0, 20.0), 0.0)
 		tx = clampf(tx, -62.0, 62.0)
 
 	# With side walls up, a hard sideways swipe banks the ball off the wall on that side.
 	var bank := 0.0
-	if Phys.walls and absf(pv.x) > BANK_SWIPE and not rim and not diving:
+	if Phys.walls and absf(pv.x) > BANK_SWIPE and not rim:
 		bank = signf(pv.x)
 		tx = clampf(off.x * 0.5 - bank * 20.0, -50.0, 50.0)
 	var sol := Phys.solve_robust(ball.p, 1.0, tx, tz, w, pref, bank)
@@ -1336,8 +1330,6 @@ func _player_hit() -> void:
 		_trick("PERFECT", 10.0, 1.0)
 	if rim:
 		_trick("RIM SHOT", 50.0, 1.0)
-	if diving:
-		_trick("DIVE", 30.0, 1.0)
 
 	Audio.play("hit", 0.85 + t * 0.4, 0.06, 2.0 if perfect else 0.0)
 	freeze = 0.04 + t * 0.03
@@ -1370,13 +1362,29 @@ func _opp_hit() -> void:
 	var topspin: float = [randf_range(-35.0, -12.0), randf_range(10.0, 40.0), randf_range(-5.0, 10.0)].pick_random()
 	var w := Vector3(-topspin, randf_range(-25.0, 25.0), 0.0)
 	if returns >= 2 and randf() < opp_wide_chance:
-		# Occasional very wide ball, curling outwards: only a Stretch will reach it.
+		# Occasional very wide ball, curling outwards.
 		var side := signf(randf() - 0.5)
 		tx = side * randf_range(60.0, 68.0)
 		w.y = -side * randf_range(60.0, 90.0)
-	var sol := Phys.solve_robust(ball.p, -1.0, tx, tz, w, randf_range(8.0, 26.0))
+	var pref := randf_range(8.0, 26.0)
+	var sol := Phys.solve_robust(ball.p, -1.0, tx, tz, w, pref)
 	ball.v = sol.v
 	ball.w = sol.w
+	# However wide, the ball must cross your paddle plane where the mouse can reach it (and the screen
+	# can show it): ease the curl and the aim until it does.
+	for i in 5:
+		var cross := Phys.predict(ball, PADDLE_Z, -1.0)
+		if cross.z == 0.0 or absf(cross.x) <= OPP_REACH:
+			break
+		w.y *= 0.5
+		tx *= 0.9
+		if i == 4:
+			# last resort: a plain shot with no curl, aimed well inside the table
+			w.y = 0.0
+			tx = signf(tx) * 25.0
+		sol = Phys.solve_robust(ball.p, -1.0, tx, tz, w, pref)
+		ball.v = sol.v
+		ball.w = sol.w
 	net_hit_since_hit = false
 	last_hitter = Who.OPP
 	bounces = 0
