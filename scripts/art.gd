@@ -164,46 +164,54 @@ static func paddle_disc(ci: CanvasItem, pos: Vector2, r: float, tilt: float, alp
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
-## The player's hand gripping the handle, with a sleeved forearm rising from the bottom of the screen.
-## `handle` is the skin's handle length. Draw it after the paddle.
+## The player's gloved hand gripping the handle: a fat cartoon fist, four fingers rolled round the
+## handle, a thumb over the top and a short cuff. `handle` is the skin's handle length. Draw it after the paddle.
 static func hand(ci: CanvasItem, pos: Vector2, r: float, tilt: float, alpha: float, handle: float = 1.0) -> void:
-	var skin := Color("f2b38a")
-	var sleeve := Color("3a8fd6")
-	var y := r * (0.55 + 1.3 * handle) - r * 0.45
-	# forearm: from the wrist down off the screen, in screen space so it stays roughly upright
-	var wrist := pos + Vector2(0, y + r * 0.2).rotated(tilt)
-	var far := Vector2(lerpf(wrist.x, 640.0, 0.25), 820.0)
-	var dir := (far - wrist).normalized()
-	ci.draw_line(wrist, far, Color(INK, alpha), r * 0.9 + 6.0)
-	ci.draw_line(wrist, far, Color(sleeve, alpha), r * 0.9)
-	ci.draw_line(wrist + dir * r * 0.5, far, Color(sleeve.lightened(0.18), alpha), r * 0.18)
-	ci.draw_line(wrist, wrist + dir * r * 0.42, Color(CREAM, alpha), r * 0.9)
+	var glove := Color("fff4dc")
+	var shade := glove.darkened(0.14)
+	var cuff := Color("3a8fd6")
+	var y := r * (0.55 + 1.3 * handle) - r * 0.85
+	var w := r * 0.55
 	ci.draw_set_transform(pos, tilt, Vector2.ONE)
-	# fist: a palm with four fingers wrapped around the handle and the thumb laid along it
-	var w := r * 0.4
-	ellipse(ci, Vector2(0, y + r * 0.04), w + 3.0, r * 0.42 + 3.0, Color(INK, alpha))
-	ellipse(ci, Vector2(0, y + r * 0.04), w, r * 0.42, Color(skin.darkened(0.08), alpha))
-	for i in 4:
-		var fy := y - r * 0.3 + i * r * 0.2
-		var fx := w * (0.92 - absf(i - 1.5) * 0.08)
-		ci.draw_line(Vector2(-fx, fy), Vector2(fx, fy), Color(INK, alpha), r * 0.22 + 5.0)
-		ci.draw_circle(Vector2(-fx, fy), r * 0.11 + 2.5, Color(INK, alpha))
-		ci.draw_circle(Vector2(fx, fy), r * 0.11 + 2.5, Color(INK, alpha))
-	for i in 4:
-		var fy := y - r * 0.3 + i * r * 0.2
-		var fx := w * (0.92 - absf(i - 1.5) * 0.08)
-		ci.draw_line(Vector2(-fx, fy), Vector2(fx, fy), Color(skin, alpha), r * 0.22)
-		ci.draw_circle(Vector2(-fx, fy), r * 0.11, Color(skin, alpha))
-		ci.draw_circle(Vector2(fx, fy), r * 0.11, Color(skin, alpha))
-		ci.draw_line(Vector2(-fx + r * 0.1, fy - r * 0.05), Vector2(fx * 0.3, fy - r * 0.05), Color(skin.lightened(0.3), 0.8 * alpha), maxf(1.5, r * 0.04))
-	# thumb, resting on top of the fingers
-	var t0 := Vector2(w * 0.55, y - r * 0.02)
-	var t1 := Vector2(w * 0.4, y - r * 0.5)
-	ci.draw_line(t0, t1, Color(INK, alpha), r * 0.24 + 5.0)
-	ci.draw_circle(t1, r * 0.12 + 2.5, Color(INK, alpha))
-	ci.draw_line(t0, t1, Color(skin, alpha), r * 0.24)
-	ci.draw_circle(t1, r * 0.12, Color(skin, alpha))
-	ci.draw_circle(t1 + Vector2(0, -r * 0.03), r * 0.05, Color(skin.lightened(0.35), alpha))
+	# cuff
+	var cr := Rect2(-w * 0.8, y + r * 0.3, w * 1.6, r * 0.42)
+	ci.draw_rect(cr.grow(3.0), Color(INK, alpha))
+	ci.draw_rect(cr, Color(cuff, alpha))
+	ci.draw_rect(Rect2(cr.position, Vector2(cr.size.x, cr.size.y * 0.3)), Color(cuff.lightened(0.3), alpha))
+	# back of the fist
+	var pc := Vector2(0, y + r * 0.08)
+	ellipse(ci, pc, w + 3.0, r * 0.4 + 3.0, Color(INK, alpha))
+	ellipse(ci, pc, w, r * 0.4, Color(glove, alpha))
+	ellipse(ci, pc + Vector2(w * 0.12, r * 0.12), w * 0.8, r * 0.26, Color(shade, alpha))
+	# four fat fingers rolled round the handle, each ending in a rounded tip on the right
+	var fh := r * 0.19
+	for pass_ in 2:
+		for i in 4:
+			var fy := y - r * 0.27 + i * fh * 1.02
+			var half := w * (1.0 - absf(i - 1.5) * 0.07)
+			var c := fh * 0.5
+			if pass_ == 0:
+				ci.draw_line(Vector2(-half, fy), Vector2(half, fy), Color(INK, alpha), fh + 5.0)
+				ci.draw_circle(Vector2(-half, fy), c + 2.5, Color(INK, alpha))
+				ci.draw_circle(Vector2(half, fy), c + 2.5, Color(INK, alpha))
+			else:
+				ci.draw_line(Vector2(-half, fy), Vector2(half, fy), Color(glove, alpha), fh)
+				ci.draw_circle(Vector2(-half, fy), c, Color(glove, alpha))
+				ci.draw_circle(Vector2(half, fy), c, Color(glove, alpha))
+				ci.draw_line(Vector2(-half + c, fy + c * 0.55), Vector2(half, fy + c * 0.55), Color(shade, alpha), maxf(2.0, fh * 0.16))
+				ci.draw_line(Vector2(-half * 0.55, fy - c * 0.4), Vector2(half * 0.2, fy - c * 0.4), Color(Color.WHITE, 0.9 * alpha), maxf(1.5, fh * 0.12))
+	# thumb: a chunky capsule laid diagonally over the front of the fingers
+	var t0 := Vector2(-w * 0.62, y + r * 0.22)
+	var t1 := Vector2(-w * 0.5, y - r * 0.3)
+	var tw := r * 0.25
+	ci.draw_line(t0, t1, Color(INK, alpha), tw + 5.0)
+	ci.draw_circle(t0, tw * 0.5 + 2.5, Color(INK, alpha))
+	ci.draw_circle(t1, tw * 0.5 + 2.5, Color(INK, alpha))
+	ci.draw_line(t0, t1, Color(glove, alpha), tw)
+	ci.draw_circle(t0, tw * 0.5, Color(glove, alpha))
+	ci.draw_circle(t1, tw * 0.5, Color(glove, alpha))
+	ci.draw_line(t0 + Vector2(tw * 0.1, tw * 0.32), t1 + Vector2(0, tw * 0.32), Color(shade, alpha), maxf(2.0, tw * 0.14))
+	ci.draw_circle(t1 + Vector2(-tw * 0.12, -tw * 0.15), tw * 0.16, Color(Color.WHITE, alpha))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
