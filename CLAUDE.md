@@ -65,7 +65,7 @@ After each boss (stages 2, 4, 6, 8) the shop leads to an offer card instead of t
 
 ## Paddle and controls
 
-There is no player body and no walking. The mouse moves the paddle across the whole table (`Game.base_range()`, scaled by the paddle's `reach`); left click lunges; **Space** fires the paddle's ability. A glove (`Art.glove`) holds the handle.
+There is no player body and no walking. The mouse moves the paddle across the whole table (`Game.base_range()`, scaled by the paddle's `reach`); left click lunges; **Space** fires the paddle's ability. A hand and forearm (`Art.hand`) hold the handle.
 
 - Abilities, in `Game._ability`: `stretch` widens the reach for a moment (hits made out there are a DIVE, wild but they pay), `focus` slows time (`_ball_time`), `grab` boosts the hit assist (`_assist`). Cooldown and duration are per paddle.
 - `Game.equip_paddle(id)` swaps the held paddle (size, reach, speed, ability). A new run starts with the Classic. `--paddle=<id>` starts a run with another one.

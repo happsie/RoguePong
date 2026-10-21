@@ -256,7 +256,7 @@ func _player() -> void:
 		for k in 4:
 			Art.paddle_disc(self, pp - Vector2(signf(pad.x) * (k + 1) * pr * 0.5, 0.0), pr, tilt, 0.12 * alpha, skin)
 	Art.paddle_disc(self, pp, pr, tilt, alpha, skin)
-	Art.glove(self, pp, pr, tilt, alpha, skin.handle)
+	Art.hand(self, pp, pr, tilt, alpha, skin.handle)
 
 
 func _fx() -> void:
