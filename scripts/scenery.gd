@@ -50,99 +50,159 @@ static func _eyes(ci: CanvasItem, c: Vector2, sep: float, r: float, look: Vector
 
 
 # ---------------------------------------------------------------- beach club
+# Paper-cut style: flat shapes, no outlines, each layer casts a soft shadow on the one behind it.
+
+const PAPER_SKY := Color("9bdcec")
+const PAPER_SHADOW := Color(0.05, 0.2, 0.3, 0.16)
+
+
+static func _quad(a: Vector2, b: Vector2, c: Vector2, f: float) -> Vector2:
+	return a * (1.0 - f) * (1.0 - f) + b * 2.0 * (1.0 - f) * f + c * f * f
+
+
+## A wavy-topped paper band reaching the bottom of the screen, with a shadow cast up onto the layer behind.
+static func _layer(ci: CanvasItem, y: float, amp: float, wl: float, ph: float, col: Color) -> void:
+	var top := PackedVector2Array()
+	for i in 69:
+		var x := -40.0 + i * 20.0
+		top.append(Vector2(x, y + sin(x / wl + ph) * amp))
+	var shadow := PackedVector2Array()
+	for p in top:
+		shadow.append(p - Vector2(0, 7))
+	shadow.append(Vector2(1320, 770))
+	shadow.append(Vector2(-40, 770))
+	ci.draw_colored_polygon(shadow, PAPER_SHADOW)
+	top.append(Vector2(1320, 770))
+	top.append(Vector2(-40, 770))
+	ci.draw_colored_polygon(top, col)
+
+
+static func _paper_cloud(ci: CanvasItem, p: Vector2, s: float) -> void:
+	_cloud(ci, p + Vector2(0, 6), s, PAPER_SHADOW)
+	_cloud(ci, p, s, Color.WHITE)
+
 
 static func _beach(ci: CanvasItem, t: float) -> void:
-	grad(ci, -40, 250, Color("2fb4e9"), Color("c4f1f0"))
-	# a sun in sunglasses
-	var sun := Vector2(880, 120)
-	for i in 14:
-		var a := TAU * i / 14.0 + t * 0.3
-		var d := Vector2(cos(a), sin(a))
-		ci.draw_line(sun + d * 56.0, sun + d * (74.0 + sin(t * 3.0 + i) * 8.0), Art.GOLD, 8.0)
-	ci.draw_circle(sun, 52, Art.INK)
-	ci.draw_circle(sun, 48, Color("ffd34d"))
-	ci.draw_rect(Rect2(sun.x - 40, sun.y - 14, 34, 22), Art.INK)
-	ci.draw_rect(Rect2(sun.x + 6, sun.y - 14, 34, 22), Art.INK)
-	ci.draw_line(sun + Vector2(-8, -8), sun + Vector2(8, -8), Art.INK, 4.0)
-	ci.draw_arc(sun + Vector2(0, 10), 22.0, deg_to_rad(20), deg_to_rad(160), 12, Art.INK, 4.0)
-	_drift_clouds(ci, t, Color(1, 1, 1, 0.9), 70.0, 3)
-	# sea with a little sailboat
-	grad(ci, 196, 252, Color("1d86c9"), Color("45c3dd"))
+	ci.draw_rect(Rect2(-40, -40, 1360, 800), PAPER_SKY)
+	# a sun in sunglasses, made of paper rings
+	var sun := Vector2(880, 118)
+	var pulse := sin(t * 1.4) * 2.0
+	ci.draw_circle(sun + Vector2(0, 7), 104.0 + pulse, PAPER_SHADOW)
+	ci.draw_circle(sun, 104.0 + pulse, Color("ffe9a8"))
+	ci.draw_circle(sun, 78.0 + pulse * 0.6, Color("ffdb70"))
+	ci.draw_circle(sun, 52.0, Color("ffc83a"))
+	Art.ellipse(ci, sun + Vector2(-23, -5), 19.0, 13.0, Art.INK)
+	Art.ellipse(ci, sun + Vector2(23, -5), 19.0, 13.0, Art.INK)
+	ci.draw_rect(Rect2(sun.x - 6, sun.y - 9, 12, 4), Art.INK)
+	ci.draw_arc(sun + Vector2(0, 14), 18.0, deg_to_rad(20), deg_to_rad(160), 12, Art.INK, 4.0)
+	for k in 3:
+		var x := fposmod(t * (7.0 + k * 3.0) + k * 520.0, 1500.0) - 120.0
+		_paper_cloud(ci, Vector2(x, 70.0 + (k % 2) * 40.0 + h(k * 3.0) * 20.0), 0.95 + h(k + 1.0) * 0.5)
+	# the sea in three turquoise bands, with a little sailboat
+	_layer(ci, 200, 5, 70, t * 0.8, Color("62d2c8"))
 	var bob := sin(t * 1.5) * 3.0
-	ci.draw_colored_polygon(PackedVector2Array([Vector2(300, 218 + bob), Vector2(300, 170 + bob), Vector2(338, 214 + bob)]), Color.WHITE)
-	ci.draw_colored_polygon(PackedVector2Array([Vector2(286, 218 + bob), Vector2(352, 218 + bob), Vector2(340, 230 + bob), Vector2(298, 230 + bob)]), Art.RED)
-	for i in 16:
-		var x := fposmod(i * 97.0 + t * 20.0, 1400.0) - 60.0
-		var y := 208.0 + (i % 5) * 9.0
-		ci.draw_line(Vector2(x, y), Vector2(x + 34, y), Color(1, 1, 1, 0.45), 3.0)
-	# sand with a foamy edge
-	grad(ci, 246, 760, Color("f6dca2"), Color("d6aa68"))
-	var foam := PackedVector2Array()
-	for i in 41:
-		foam.append(Vector2(-40 + i * 34.0, 246.0 + sin(t * 2.0 + i * 0.7) * 3.0))
-	ci.draw_polyline(foam, Color(1, 1, 1, 0.9), 6.0)
-	# deckchair umbrella and a bouncing beach ball
-	_umbrella(ci, Vector2(215, 280), t)
-	_umbrella(ci, Vector2(1075, 290), t + 2.0)
-	_beach_ball(ci, Vector2(420, 300 - absf(sin(t * 3.0)) * 70.0), t)
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(300, 214 + bob), Vector2(300, 166 + bob), Vector2(336, 210 + bob)]), Color("fff6e5"))
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(292, 214 + bob), Vector2(266, 214 + bob), Vector2(292, 182 + bob)]), Color("ffd2a0"))
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(256, 216 + bob), Vector2(346, 216 + bob), Vector2(334, 229 + bob), Vector2(268, 229 + bob)]), Color("e5483e"))
+	_layer(ci, 222, 6, 60, t * 1.0 + 2.0, Color("37b3c0"))
+	_layer(ci, 240, 5, 52, t * 1.2 + 4.0, Color("2392ad"))
+	# sand in four warm bands
+	_layer(ci, 262, 5, 80, t * 0.6 + 1.0, Color("f7e0b0"))
+	_layer(ci, 318, 8, 110, 3.0, Color("f0cd92"))
+	_layer(ci, 400, 10, 140, 5.0, Color("e8bb78"))
+	_layer(ci, 500, 8, 160, 1.0, Color("dfab63"))
+	_surfboard(ci, Vector2(372, 292))
+	_umbrella(ci, Vector2(1075, 300), t)
 	_palm(ci, Vector2(70, 345), 1.0, t, 0.62)
 	_palm(ci, Vector2(1215, 350), -1.0, t + 1.0, 0.62)
+	_starfish(ci, Vector2(120, 560))
+	_beach_ball(ci, Vector2(215, 330 - absf(sin(t * 3.0)) * 70.0), t)
 	# seagull
 	var gx := fposmod(t * 60.0, 1500.0) - 110.0
 	var gy := 52.0 + sin(t * 2.0) * 14.0
 	var w := sin(t * 10.0) * 9.0
-	var wing := PackedVector2Array([Vector2(gx - 26, gy - w), Vector2(gx - 11, gy - 6), Vector2(gx, gy), Vector2(gx + 11, gy - 6), Vector2(gx + 26, gy - w)])
-	ci.draw_polyline(wing, Art.INK, 8.0)
-	ci.draw_polyline(wing, Color.WHITE, 4.0)
+	ci.draw_polyline(PackedVector2Array([Vector2(gx - 26, gy - w), Vector2(gx - 11, gy - 6), Vector2(gx, gy), Vector2(gx + 11, gy - 6), Vector2(gx + 26, gy - w)]), Color.WHITE, 5.0)
+
+
+## A surfboard stuck upright in the sand; `base` is where the tip meets the sand.
+static func _surfboard(ci: CanvasItem, base: Vector2) -> void:
+	ci.draw_set_transform(base + Vector2(8, 6), 0.1, Vector2.ONE)
+	Art.ellipse(ci, Vector2(0, -118), 34.0, 120.0, PAPER_SHADOW)
+	ci.draw_set_transform(base, 0.1, Vector2.ONE)
+	Art.ellipse(ci, Vector2(0, -118), 34.0, 120.0, Color("f2665a"))
+	ci.draw_rect(Rect2(-7, -236, 14, 236), Color("fff6e5"))
+	ci.draw_colored_polygon(PackedVector2Array([Vector2(0, -10), Vector2(-9, 14), Vector2(9, 14)]), Color("c94a40"))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+static func _starfish(ci: CanvasItem, p: Vector2) -> void:
+	var pts := PackedVector2Array()
+	for i in 10:
+		var a := -PI * 0.5 + i * PI / 5.0
+		pts.append(p + Vector2(cos(a), sin(a)) * (9.0 if i % 2 == 1 else 22.0))
+	var shadow := PackedVector2Array()
+	for q in pts:
+		shadow.append(q + Vector2(3, 4))
+	ci.draw_colored_polygon(shadow, PAPER_SHADOW)
+	ci.draw_colored_polygon(pts, Color("ff8a4d"))
 
 
 static func _umbrella(ci: CanvasItem, base: Vector2, t: float) -> void:
 	var sway := sin(t * 1.2) * 2.0
 	var top := base + Vector2(sway, -118)
-	ci.draw_line(base, top, Art.INK, 9.0)
-	ci.draw_line(base, top, Art.WOOD, 5.0)
+	Art.ellipse(ci, base + Vector2(40, 4), 84.0, 9.0, PAPER_SHADOW)
+	ci.draw_line(base, top, Color("b97c4c"), 6.0)
 	for i in 6:
 		var x0 := base.x - 78.0 + i * 26.0
-		var tri := PackedVector2Array([top + Vector2(0, -8), Vector2(x0, top.y + 46), Vector2(x0 + 26, top.y + 46)])
-		ci.draw_colored_polygon(tri, Art.RED if i % 2 == 0 else Art.CREAM)
-		ci.draw_circle(Vector2(x0 + 13, top.y + 46), 13.0, Art.RED if i % 2 == 0 else Art.CREAM)
-	ci.draw_polyline(PackedVector2Array([Vector2(base.x - 78, top.y + 46), top + Vector2(0, -8), Vector2(base.x + 78, top.y + 46)]), Art.INK, 3.0)
+		var col := Art.RED if i % 2 == 0 else Art.CREAM
+		ci.draw_colored_polygon(PackedVector2Array([top + Vector2(0, -8), Vector2(x0, top.y + 46), Vector2(x0 + 26, top.y + 46)]), col)
+		ci.draw_circle(Vector2(x0 + 13, top.y + 46), 13.0, col)
 
 
 static func _beach_ball(ci: CanvasItem, p: Vector2, t: float) -> void:
 	var cols := [Art.RED, Art.CREAM, Art.BLUE, Art.GOLD]
-	ci.draw_circle(p, 26.0, Art.INK)
+	Art.ellipse(ci, Vector2(p.x, 350), 24.0 - (350.0 - p.y) * 0.04, 7.0, PAPER_SHADOW)
+	ci.draw_circle(p, 26.0, Art.CREAM)
 	for i in 4:
 		var a0 := t * 3.0 + i * PI * 0.5
 		var pts := PackedVector2Array([p])
 		for k in 7:
 			var a := a0 + k * PI * 0.5 / 6.0
-			pts.append(p + Vector2(cos(a), sin(a)) * 23.0)
+			pts.append(p + Vector2(cos(a), sin(a)) * 26.0)
 		ci.draw_colored_polygon(pts, cols[i])
-	ci.draw_circle(p + Vector2(-8, -9), 5.0, Color(1, 1, 1, 0.7))
-	Art.ellipse(ci, Vector2(p.x, 305), 24.0, 7.0, Color(0, 0, 0, 0.18))
 
 
 static func _palm(ci: CanvasItem, base: Vector2, dir: float, t: float, s: float) -> void:
 	var ctrl := base + Vector2(-dir * 34.0 * s, -150.0 * s)
 	var top := base + Vector2(dir * 56.0 * s, -270.0 * s)
 	var trunk := PackedVector2Array()
+	var shadow := PackedVector2Array()
 	for i in 11:
 		var f := i / 10.0
-		trunk.append(base * (1.0 - f) * (1.0 - f) + ctrl * 2.0 * (1.0 - f) * f + top * f * f)
-	ci.draw_polyline(trunk, Art.INK, 30.0 * s)
-	ci.draw_polyline(trunk, Art.WOOD, 22.0 * s)
+		var p := _quad(base, ctrl, top, f)
+		trunk.append(p)
+		shadow.append(p + Vector2(7, 5))
+	ci.draw_polyline(shadow, PAPER_SHADOW, 22.0 * s)
+	ci.draw_polyline(trunk, Color("b97c4c"), 22.0 * s)
+	for i in range(1, 10):
+		ci.draw_line(trunk[i] + Vector2(-11, 2) * s, trunk[i] + Vector2(11, -3) * s, Color("a06a3e"), 2.5 * s)
 	for k in 8:
 		var a := deg_to_rad(-175.0 + k * 24.0) + sin(t * 1.6 + k) * 0.07
-		var fr := PackedVector2Array()
-		for j in 6:
-			var f := j / 5.0
-			fr.append(top + Vector2(cos(a), sin(a)) * 120.0 * s * f + Vector2(0, f * f * 62.0 * s))
-		ci.draw_polyline(fr, Art.INK, 17.0 * s)
-		ci.draw_polyline(fr, Art.GREEN.darkened(0.1 + (k % 2) * 0.15), 11.0 * s)
-	for o in [Vector2(-9, 10), Vector2(9, 12)]:
-		ci.draw_circle(top + o * s, 9.0 * s, Art.INK)
-		ci.draw_circle(top + o * s, 6.5 * s, Art.WOOD_DARK)
+		var tip := top + Vector2(cos(a), sin(a)) * 125.0 * s + Vector2(0, 62.0 * s)
+		var mid := (top + tip) * 0.5 + Vector2(0, -22.0 * s)
+		var perp := Vector2(-sin(a), cos(a)) * 22.0 * s
+		var leaf := PackedVector2Array()
+		for j in 9:
+			leaf.append(_quad(top, mid + perp, tip, j / 8.0))
+		for j in range(7, 0, -1):
+			leaf.append(_quad(top, mid - perp, tip, j / 8.0))
+		var off := PackedVector2Array()
+		for q in leaf:
+			off.append(q + Vector2(5, 6))
+		ci.draw_colored_polygon(off, PAPER_SHADOW)
+		ci.draw_colored_polygon(leaf, Color("2f9c78") if k % 2 == 1 else Color("1f7a5e"))
+	for o in [Vector2(-9, 10), Vector2(9, 12), Vector2(0, 18)]:
+		ci.draw_circle(top + o * s, 9.0 * s, Color("7a4a2a"))
 
 
 # ---------------------------------------------------------------- mount everest
