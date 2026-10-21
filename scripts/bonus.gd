@@ -278,10 +278,10 @@ func _player_hit(b: Dictionary) -> void:
 	var pv: Vector3 = game.paddle_vel
 	var sw := clampf(inverse_lerp(80.0, 800.0, pv.length()), 0.0, 1.0)
 	var perfect: bool = game.lunge_t > 0.0
-	var off := Vector2(ball.p.x - game.paddle.x, ball.p.y - game.paddle.y).limit_length(Game.PADDLE_R * 0.6)
+	var off := Vector2(ball.p.x - game.paddle.x, ball.p.y - game.paddle.y).limit_length(game.paddle_r * 0.6)
 	var h := ball.p.y
 	var w := Vector3(clampf(pv.y * 0.17, -110.0, 110.0), clampf(pv.x * 0.22, -140.0, 140.0), 0.0)
-	var lean := clampf((game.paddle.x - game.body_x) / Game.REACH, -1.0, 1.0)
+	var lean := clampf(game.paddle.x / game.base_range(), -1.0, 1.0)
 	var tx := clampf(pv.x * 0.14 + off.x * 2.4 - lean * 20.0, -62.0, 62.0)
 	var tz := lerpf(Phys.NET_Z + 35.0, Phys.LENGTH - 14.0, pow(sw, 0.8))
 	var pref := 20.0 - (h - 28.0) * 0.35
@@ -291,7 +291,7 @@ func _player_hit(b: Dictionary) -> void:
 	if perfect:
 		pref = 3.0
 		tz = Phys.LENGTH - 16.0
-	if game.dash_t > 0.0 or game.stumble_t > 0.0:
+	if game.is_diving():
 		tx = clampf(tx + randf_range(-30.0, 30.0), -62.0, 62.0)
 		w += Vector3(randf_range(-20.0, 20.0), randf_range(-20.0, 20.0), 0.0)
 	var sol := Phys.solve_robust(ball.p, 1.0, tx, tz, w, pref)
@@ -429,9 +429,7 @@ func bot_target() -> Vector2:
 			best_z = ball.p.z
 			best = b.intercept
 	if best.z > 0.0:
-		if best_z < 80.0 and game.lunge_cd <= 0.0 and game.stumble_t <= 0.0 and randf() < 0.05:
+		if best_z < 80.0 and game.lunge_cd <= 0.0 and randf() < 0.05:
 			game._lunge()
-		game.bot_goal_x = clampf(best.x, -Game.BODY_LIMIT, Game.BODY_LIMIT)
 		return Vector2(best.x, best.y)
-	game.bot_goal_x = 0.0
 	return Vector2(0.0, 30.0)

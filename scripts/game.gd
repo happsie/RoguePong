@@ -29,21 +29,13 @@ const INTERCEPT_HINT := true
 const ASSIST_CAPTURE := 27.0
 const ASSIST_PULL := 0.35
 const ASSIST_DIST := 90.0
-# The body walks along the baseline; the paddle reaches a short way either side of it.
-const BODY_SPEED := 260.0
-const BODY_ACCEL := 2200.0
-const BODY_BRAKE := 2800.0
-const BODY_LIMIT := 55.0
-const REACH := 48.0
+# How far along the table the mouse can take the paddle (a paddle scales this with its `reach`).
+# The Stretch ability multiplies it for a moment, which is how very wide balls are reached.
+const BASE_RANGE := 105.0
+const STRETCH_RANGE := 1.9
 const SMASH_FALLOFF := 0.6
 const SMASH_FLOOR := 0.5
 const BANK_SWIPE := 450.0 # sideways paddle speed that banks a Pinball shot off the wall
-# Dash: a short, uncontrollable burst that gets you past the walking limit, at a price.
-const DASH_SPEED := 1100.0
-const DASH_TIME := 0.14
-const DASH_LIMIT := 190.0
-const DASH_COOLDOWN := 3.0
-const STUMBLE_TIME := 0.55
 # Settings overlay (Esc): volume sliders and resume / quit buttons.
 const SET_PANEL := Rect2(400, 190, 480, 362)
 const SET_BUSES := ["Music", "SFX"]
@@ -65,15 +57,15 @@ var hit_cd := 0.0
 var opp_hit_cd := 0.0
 var intercept := Vector3.ZERO
 
-var body_x := 0.0
-var body_vx := 0.0
+var paddle_id: String = Paddles.CLASSIC
+var paddle_def: Dictionary = Paddles.DEFS[Paddles.CLASSIC]
+var paddle_r := PADDLE_R
 var paddle_xy := Vector2(0.0, 30.0)
 var intent_xy := Vector2(0.0, 30.0)
 var intent := Vector3(0.0, 30.0, PADDLE_Z)
-var dash_t := 0.0
-var dash_dir := 0.0
-var dash_cd := 0.0
-var stumble_t := 0.0
+## The paddle's ability (Space): `ability_t` counts down while it is active, `ability_cd` until it is ready again.
+var ability_t := 0.0
+var ability_cd := 0.0
 var net_flash := 0.0
 var net_hit_since_hit := false
 var net_test := false
@@ -81,7 +73,6 @@ var shot_at := 7.0
 var hit_assist := true
 var assist_lock := false
 var prev_rel_z := 0.0
-var bot_goal_x := 0.0
 var bot_err := 0.0
 var paddle := Vector3(0.0, 30.0, PADDLE_Z)
 var paddle_vel := Vector3.ZERO
@@ -174,6 +165,8 @@ var fire_lit := false
 var assist_mul := 1.0
 ## Dev: `--ball=<id>` fills the bag with one kind of ball, to test it.
 var test_ball := ""
+## Dev: `--paddle=<id>` starts the run holding that paddle.
+var test_paddle := ""
 var shop_offers: Array[String] = []
 var shop_ref := 100
 var shop_rerolls := 0
@@ -210,6 +203,8 @@ func _ready() -> void:
 			net_test = true
 		elif a.begins_with("--shot-at="):
 			shot_at = float(a.substr(10))
+		elif a.begins_with("--paddle="):
+			test_paddle = a.substr(9)
 		elif a.begins_with("--ball="):
 			test_ball = a.substr(7)
 		elif a == "--noassist":
@@ -244,6 +239,7 @@ func _ready() -> void:
 	layer.add_child(crt)
 	add_child(layer)
 
+	equip_paddle(test_paddle if Paddles.DEFS.has(test_paddle) else Paddles.CLASSIC)
 	_reset_bag()
 	_begin_stage()
 	match show_state:
@@ -362,10 +358,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				if state_t > 0.8:
 					_restart()
 			_:
-				if lunge_cd <= 0.0 and stumble_t <= 0.0:
+				if lunge_cd <= 0.0:
 					_lunge()
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_SPACE:
-		_dash()
+		_ability()
 
 
 func _lunge() -> void:
@@ -374,53 +370,47 @@ func _lunge() -> void:
 	Audio.play("swoosh")
 
 
-func _input_axis() -> float:
-	if bot:
-		return clampf((bot_goal_x - body_x) / 6.0, -1.0, 1.0)
-	var axis := 0.0
-	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
-		axis += 1.0
-	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
-		axis -= 1.0
-	return axis
-
-
-## Dashing needs a direction held, can't be steered, and leaves you stumbling afterwards.
-func _dash() -> void:
-	var axis := _input_axis()
-	if dash_cd > 0.0 or axis == 0.0 or not (state == S.READY or state == S.RALLY or state == S.POINT_OVER):
+## The paddle's ability, on Space: Stretch widens the reach, Focus slows time, Grab boosts the hit assist.
+func _ability() -> void:
+	if ability_cd > 0.0 or not (state == S.READY or state == S.RALLY or state == S.POINT_OVER):
 		return
-	dash_dir = signf(axis)
-	dash_t = DASH_TIME
-	dash_cd = DASH_COOLDOWN
-	stumble_t = DASH_TIME + STUMBLE_TIME
-	shake = maxf(shake, 4.0)
+	ability_t = paddle_def.dur
+	ability_cd = paddle_def.cd
+	shake = maxf(shake, 3.0)
 	Audio.play("dash")
+	_burst(Cam.project(paddle), Art.CREAM, 10, 260.0)
 
 
-func _move_body(delta: float) -> void:
-	if dash_t > 0.0:
-		body_vx = dash_dir * DASH_SPEED
-		_burst(Cam.project(Vector3(body_x, 10.0, PADDLE_Z)), Color(1, 1, 1), 2, 220.0)
-	else:
-		var top := BODY_SPEED * (0.3 if stumble_t > 0.0 else 1.0)
-		var axis := _input_axis()
-		if absf(body_vx) > top:
-			body_vx = move_toward(body_vx, signf(body_vx) * top, BODY_BRAKE * 0.5 * delta)
-		elif axis != 0.0:
-			body_vx = move_toward(body_vx, axis * top, BODY_ACCEL * delta)
-		else:
-			body_vx = move_toward(body_vx, 0.0, BODY_BRAKE * delta)
-	body_x += body_vx * delta
-	if dash_t <= 0.0 and stumble_t <= 0.0 and absf(body_x) > BODY_LIMIT:
-		if signf(body_vx) == signf(body_x):
-			body_vx = 0.0
-		body_x = move_toward(body_x, signf(body_x) * BODY_LIMIT, 260.0 * delta)
-	body_x = clampf(body_x, -DASH_LIMIT, DASH_LIMIT)
+func _ability_on(kind: String) -> bool:
+	return ability_t > 0.0 and paddle_def.ability == kind
+
+
+## The widest the paddle can go with no ability running.
+func base_range() -> float:
+	return BASE_RANGE * float(paddle_def.reach)
+
+
+## How far along the table the paddle can go right now.
+func paddle_range() -> float:
+	return base_range() * (STRETCH_RANGE if _ability_on("stretch") else 1.0)
+
+
+## A hit made out beyond the normal reach (only possible mid-Stretch) is a DIVE: wild, but it pays.
+func is_diving() -> bool:
+	return absf(paddle.x) > base_range() + 4.0
+
+
+func equip_paddle(id: String) -> void:
+	paddle_id = id
+	paddle_def = Paddles.DEFS[id]
+	paddle_r = PADDLE_R * float(paddle_def.size)
+	ability_t = 0.0
+	ability_cd = 0.0
 
 
 func _restart() -> void:
 	stage = 0
+	equip_paddle(test_paddle if Paddles.DEFS.has(test_paddle) else Paddles.CLASSIC)
 	run_score = 0
 	bonus_heat = 0.0
 	lives = START_LIVES
@@ -597,9 +587,10 @@ func _apply_ball_physics() -> void:
 ## Time Warp: the simulation runs slower for balls coming at you and faster for your returns.
 ## The path is unchanged, only how fast it is travelled, so the solver stays exact.
 func _ball_time() -> float:
+	var focus := 0.45 if _ability_on("focus") else 1.0
 	if cur == "timewarp":
-		return 0.75 if last_hitter == Who.OPP else 1.3
-	return 1.0
+		return focus * (0.75 if last_hitter == Who.OPP else 1.3)
+	return focus
 
 
 func next_ball() -> String:
@@ -609,7 +600,7 @@ func next_ball() -> String:
 func _open_shop() -> void:
 	shop_ref = maxi(100, target)
 	shop_rerolls = 0
-	shop_offers = Balls.roll_offers(3)
+	_roll_shop()
 	shop_msg = ""
 	state = S.SHOP
 	state_t = 0.0
@@ -644,7 +635,7 @@ func _shop_click(pos: Vector2) -> void:
 		else:
 			plinks -= cost
 			shop_rerolls += 1
-			shop_offers = Balls.roll_offers(3)
+			_roll_shop()
 			shop_msg = ""
 			Audio.play("reroll")
 	elif Balls.button_rect(2).has_point(pos):
@@ -652,8 +643,26 @@ func _shop_click(pos: Vector2) -> void:
 		_leave_shop()
 
 
+## Price of a shop offer, ball or paddle.
+func offer_price(id: String) -> int:
+	if Paddles.is_offer(id):
+		return Paddles.price(Paddles.strip(id), shop_ref)
+	return Balls.price(id, shop_ref)
+
+
+## Three offers: balls, with the last slot often a paddle (always after the first stage, so you meet them early).
+func _roll_shop() -> void:
+	shop_offers = Balls.roll_offers(3)
+	var p := Paddles.roll_offer(paddle_id)
+	if p != "" and randf() < (1.0 if stage == 0 else 0.5):
+		shop_offers[2] = Paddles.offer_id(p)
+
+
 func _buy(i: int) -> void:
 	var id := shop_offers[i]
+	if Paddles.is_offer(id):
+		_buy_paddle(i)
+		return
 	var cost := Balls.price(id, shop_ref)
 	if bag.size() >= Balls.MAX_BAG:
 		shop_msg = "YOUR BAG IS FULL"
@@ -668,6 +677,22 @@ func _buy(i: int) -> void:
 		shop_offers[i] = ""
 		shop_msg = "ADDED %s TO YOUR BAG" % Balls.title(id).to_upper()
 		_burst(Balls.card_rect(i).get_center(), Balls.color(id), 30, 420.0)
+
+
+## A new paddle replaces the one you hold.
+func _buy_paddle(i: int) -> void:
+	var id := Paddles.strip(shop_offers[i])
+	var cost := Paddles.price(id, shop_ref)
+	if plinks < cost:
+		shop_msg = "NOT ENOUGH PLINKS"
+		Audio.play("deny")
+		return
+	Audio.play("buy")
+	plinks -= cost
+	equip_paddle(id)
+	shop_offers[i] = ""
+	shop_msg = "NOW HOLDING THE %s" % Paddles.title(id).to_upper()
+	_burst(Balls.card_rect(i).get_center(), Paddles.DEFS[id].face, 30, 420.0)
 
 
 func _stage_clear() -> void:
@@ -752,7 +777,7 @@ func _process(delta: float) -> void:
 				state_t += delta
 				if bot and state_t > 1.0:
 					for i in shop_offers.size():
-						if shop_offers[i] != "" and plinks >= Balls.price(shop_offers[i], shop_ref):
+						if shop_offers[i] != "" and plinks >= offer_price(shop_offers[i]):
 							_buy(i)
 					_leave_shop()
 			S.BONUS_OFFER:
@@ -787,27 +812,26 @@ func _process(delta: float) -> void:
 func _update_paddle(delta: float) -> void:
 	lunge_cd = maxf(0.0, lunge_cd - delta)
 	lunge_t = maxf(0.0, lunge_t - delta)
-	dash_cd = maxf(0.0, dash_cd - delta)
-	dash_t = maxf(0.0, dash_t - delta)
-	stumble_t = maxf(0.0, stumble_t - delta)
+	ability_cd = maxf(0.0, ability_cd - delta)
+	ability_t = maxf(0.0, ability_t - delta)
 	paddle_wobble = maxf(0.0, paddle_wobble - delta * 3.0)
 	hit_cd = maxf(0.0, hit_cd - delta)
 	opp_hit_cd = maxf(0.0, opp_hit_cd - delta)
 	var target := _bot_target() if bot else Cam.unproject(get_global_mouse_position(), PADDLE_Z)
-	_move_body(delta)
-	target = Vector2(body_x + clampf(target.x - body_x, -REACH, REACH), clampf(target.y, -35.0, 85.0))
+	var rng := paddle_range()
+	target = Vector2(clampf(target.x, -rng, rng), clampf(target.y, -35.0, 85.0))
 	var reach := 0.0
 	if lunge_t > 0.0:
 		reach = LUNGE_REACH * sin(PI * (1.0 - lunge_t / LUNGE_TIME))
-	# a touch of lag gives the paddle some weight without costing control
-	var follow := 1.0 - exp(-delta * 30.0)
+	# a touch of lag gives the paddle some weight without costing control; a nimble paddle has less
+	var follow := 1.0 - exp(-delta * 30.0 * float(paddle_def.speed))
 	# Swing speed (and so spin and aim) is read from where the player is steering the paddle,
 	# while the paddle itself is gently pulled onto the ball's path by the hit correction.
 	var intent_old := intent
 	intent_xy = intent_xy.lerp(target, follow)
 	intent = Vector3(intent_xy.x, intent_xy.y, PADDLE_Z + reach)
 	var assisted := _assist(target)
-	assisted.x = body_x + clampf(assisted.x - body_x, -REACH, REACH)
+	assisted.x = clampf(assisted.x, -rng, rng)
 	paddle_xy = paddle_xy.lerp(assisted, follow)
 	paddle = Vector3(paddle_xy.x, paddle_xy.y, PADDLE_Z + reach)
 	if delta > 0.0:
@@ -818,8 +842,8 @@ func _update_paddle(delta: float) -> void:
 ## fought. If the mouse is within the catch zone of the ball's path as it closes in, the paddle is
 ## only nudged a little towards it, and the hit itself is forgiven (see `assist_lock`: a ball that
 ## crosses counts as a hit and lands near the sweet spot). Nothing latches: it is recomputed every
-## frame, so there is nothing to get stuck on. The paddle stays within reach of the body, so wide
-## balls still need a dash.
+## frame, so there is nothing to get stuck on. The paddle stays within its reach, so the widest
+## balls still need a Stretch.
 func _assist(target: Vector2) -> Vector2:
 	var dz := ball.p.z - paddle.z
 	assist_lock = false
@@ -829,7 +853,7 @@ func _assist(target: Vector2) -> Vector2:
 	if pr.z == 0.0:
 		return target
 	var ic := Vector2(pr.x, pr.y)
-	if target.distance_to(ic) > ASSIST_CAPTURE * assist_mul:
+	if target.distance_to(ic) > ASSIST_CAPTURE * assist_mul * (2.5 if _ability_on("grab") else 1.0):
 		return target
 	assist_lock = true
 	var urgency := _smooth(inverse_lerp(ASSIST_DIST, ASSIST_DIST * 0.25, dz))
@@ -847,11 +871,12 @@ func _bot_target() -> Vector2:
 	if state == S.RALLY and last_hitter == Who.OPP and ball.v.z < 0.0:
 		var pr := Phys.predict(ball, PADDLE_Z, -1.0)
 		if pr.z > 0.0:
-			if ball.p.z < 80.0 and lunge_cd <= 0.0 and stumble_t <= 0.0 and randf() < 0.05:
+			if ball.p.z < 80.0 and lunge_cd <= 0.0 and randf() < 0.05:
 				_lunge()
-			bot_goal_x = clampf(pr.x, -BODY_LIMIT, BODY_LIMIT)
+			# the bot stretches for balls beyond its normal reach
+			if absf(pr.x) > base_range() - 6.0 and ability_cd <= 0.0:
+				_ability()
 			return Vector2(pr.x, pr.y) + Vector2.from_angle(float(bounces) * 2.4 + returns) * bot_err
-	bot_goal_x = 0.0
 	return Vector2(0.0, 30.0)
 
 
@@ -1095,20 +1120,20 @@ func _sim() -> void:
 	prev_rel_z = rel_z
 	# A locked hit correction means the player was within the catch zone, so crossing is a hit even if
 	# the paddle's sideways position hasn't quite caught up (a lunge sweeps past the ball very fast).
-	if hit_cd <= 0.0 and last_hitter == Who.OPP and ball.v.z < 0.0 and (_touches(paddle) or (crossed and (assist_lock or _within_face(paddle)))):
+	if hit_cd <= 0.0 and last_hitter == Who.OPP and ball.v.z < 0.0 and (_touches(paddle, paddle_r) or (crossed and (assist_lock or _within_face(paddle, paddle_r)))):
 		_player_hit()
-	elif opp_hit_cd <= 0.0 and last_hitter == Who.PLAYER and bounces >= 1 and ball.v.z > 0.0 and _touches(Vector3(opp.x, opp.y, OPP_Z)):
+	elif opp_hit_cd <= 0.0 and last_hitter == Who.PLAYER and bounces >= 1 and ball.v.z > 0.0 and _touches(Vector3(opp.x, opp.y, OPP_Z), PADDLE_R):
 		_opp_hit()
 	if ball.p.y < Phys.FLOOR_Y or absf(ball.p.x) > 500.0 or ball.p.z < -260.0 or ball.p.z > Phys.LENGTH + 260.0:
 		_ball_dead()
 
 
-func _touches(c: Vector3) -> bool:
-	return absf(ball.p.z - c.z) <= Phys.R + 6.0 and _within_face(c)
+func _touches(c: Vector3, r: float) -> bool:
+	return absf(ball.p.z - c.z) <= Phys.R + 6.0 and _within_face(c, r)
 
 
-func _within_face(c: Vector3) -> bool:
-	return Vector2(ball.p.x - c.x, ball.p.y - c.y).length() <= PADDLE_R + Phys.R
+func _within_face(c: Vector3, r: float) -> bool:
+	return Vector2(ball.p.x - c.x, ball.p.y - c.y).length() <= r + Phys.R
 
 
 func _on_bounce() -> void:
@@ -1228,8 +1253,8 @@ func _player_hit() -> void:
 	var off := Vector2(ball.p.x - paddle.x, ball.p.y - paddle.y)
 	if assist_lock:
 		# a forgiven hit lands near the sweet spot, so assisted hits are accurate and never wild rim shots
-		off = off.limit_length(PADDLE_R * 0.6)
-	var rim := off.length() > PADDLE_R * 0.78
+		off = off.limit_length(paddle_r * 0.6)
+	var rim := off.length() > paddle_r * 0.78
 	var h := ball.p.y
 	var volley := bounces == 0
 
@@ -1238,7 +1263,7 @@ func _player_hit() -> void:
 	if cur == "dervish":
 		w *= 1.5
 	# reaching out wide angles the paddle inwards, so the ball tends to come back across the table
-	var lean := clampf((paddle.x - body_x) / REACH, -1.0, 1.0)
+	var lean := clampf(paddle.x / base_range(), -1.0, 1.0)
 	var tx := clampf(pv.x * 0.14 + off.x * 2.4 - lean * 20.0, -62.0, 62.0)
 	var tz := lerpf(Phys.NET_Z + 35.0, Phys.LENGTH - 14.0, pow(t, 0.8))
 	var pref := 20.0 - (h - 28.0) * 0.35
@@ -1248,7 +1273,7 @@ func _player_hit() -> void:
 	if perfect:
 		pref = 3.0
 		tz = Phys.LENGTH - 16.0
-	var diving := dash_t > 0.0 or stumble_t > 0.0
+	var diving := is_diving()
 	if rim or diving:
 		tx += randf_range(-30.0, 30.0)
 		w += Vector3(randf_range(-20.0, 20.0), randf_range(-20.0, 20.0), 0.0)
@@ -1340,7 +1365,7 @@ func _opp_hit() -> void:
 	var topspin: float = [randf_range(-35.0, -12.0), randf_range(10.0, 40.0), randf_range(-5.0, 10.0)].pick_random()
 	var w := Vector3(-topspin, randf_range(-25.0, 25.0), 0.0)
 	if returns >= 2 and randf() < opp_wide_chance:
-		# Occasional very wide ball, curling outwards: only a dash will reach it.
+		# Occasional very wide ball, curling outwards: only a Stretch will reach it.
 		var side := signf(randf() - 0.5)
 		tx = side * randf_range(60.0, 68.0)
 		w.y = -side * randf_range(60.0, 90.0)

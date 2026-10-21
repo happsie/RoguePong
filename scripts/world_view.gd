@@ -1,7 +1,6 @@
 extends Node2D
 ## Draws the court in perspective, the characters, the ball and the effects. All state lives in Game.
 
-const SLEEVE_COLOR := Color("3a8fd6")
 
 var game: Game
 var bubble := StyleBoxFlat.new()
@@ -248,62 +247,16 @@ func _player() -> void:
 	var alpha := 1.0
 	if game.last_hitter == Game.Who.OPP and game.ball.v.z < 0.0:
 		alpha = 1.0 - 0.45 * clampf(inverse_lerp(160.0, 40.0, absf(game.ball.p.z - pad.z)), 0.0, 1.0)
-	# the further out the paddle reaches from the body, the more it leans over (pivoting on the hand)
-	var lean := clampf((pad.x - game.body_x) / Game.REACH, -1.0, 1.0) * 0.6
-	var tilt := lean + clampf(game.paddle_vel.x * -0.0004 - game.body_vx * 0.0002, -0.35, 0.35) + sin(game.paddle_wobble * 40.0) * game.paddle_wobble * 0.5
-	var bx := Cam.CENTER.x + game.body_x * Cam.scale_at(Vector3(0.0, 30.0, Game.PADDLE_Z))
-	var shoulder := _body(bx)
-	_arm(shoulder, pp + Vector2(0, pr * 1.85).rotated(tilt), pr, SLEEVE_COLOR)
-	Art.paddle_disc(self, pp, pr, tilt, alpha)
-
-
-## The player seen from behind: shoulders and a capped head at the bottom of the screen.
-## Returns the shoulder point the paddle arm starts from.
-func _body(bx: float) -> Vector2:
-	var run := clampf(game.body_vx / Game.BODY_SPEED, -2.5, 2.5)
-	var c := Vector2(bx + run * 8.0, 0.0)
-	var bob := absf(sin(game.time * 16.0)) * minf(absf(run), 1.0) * 6.0
-	Art.ellipse(self, Vector2(c.x + 8, 782), 178, 84, Color(0, 0, 0, 0.3))
-	Art.ellipse(self, Vector2(c.x, 776), 182, 88, Art.INK)
-	Art.ellipse(self, Vector2(c.x, 776), 170, 78, SLEEVE_COLOR.darkened(0.2))
-	Art.ellipse(self, Vector2(c.x, 768), 150, 60, SLEEVE_COLOR)
-	# jersey: collar, number and a wobbly pair of shoulders
-	draw_arc(Vector2(c.x, 748), 62.0, deg_to_rad(200), deg_to_rad(340), 14, Art.CREAM, 10.0)
-	Art.text(self, "7", Vector2(c.x, 790), 52, Art.CREAM)
-	var head := Vector2(c.x + run * 14.0, 690.0 - bob)
-	var lag := -run * 10.0
-	draw_circle(head + Vector2(5, 7), 64.0, Color(0, 0, 0, 0.3))
-	# big flappy ears
-	for s in [-1.0, 1.0]:
-		var ear := head + Vector2(s * 62.0 + lag * 0.6, 6.0 + sin(game.time * 8.0 + s) * 2.0 * minf(absf(run), 1.0))
-		draw_circle(ear, 22.0, Art.INK)
-		draw_circle(ear, 16.0, Color("f2b38a"))
-	draw_circle(head, 64.0, Art.INK)
-	draw_circle(head, 58.0, Color("f2b38a"))
-	# messy hair poking out under the cap
-	for i in 7:
-		var hx := head.x - 42.0 + i * 14.0
-		var hl := 18.0 + (i % 3) * 7.0
-		draw_line(Vector2(hx, head.y + 36.0), Vector2(hx + lag * 0.5, head.y + 36.0 + hl), Art.INK, 11.0)
-		draw_line(Vector2(hx, head.y + 36.0), Vector2(hx + lag * 0.5, head.y + 36.0 + hl), Color("7a4a2a"), 7.0)
-	# cap
-	var cap := PackedVector2Array()
-	for i in 21:
-		var a := deg_to_rad(170.0 + i * 200.0 / 20.0)
-		cap.append(head + Vector2(cos(a), sin(a)) * 60.0)
-	draw_colored_polygon(cap, Art.INK)
-	var cap_in := PackedVector2Array()
-	for i in 21:
-		var a := deg_to_rad(172.0 + i * 196.0 / 20.0)
-		cap_in.append(head + Vector2(cos(a), sin(a)) * 55.0)
-	draw_colored_polygon(cap_in, Art.BLUE)
-	for k in [-1.0, 0.0, 1.0]:
-		draw_line(head + Vector2(k * 12.0, -54.0), head + Vector2(k * 26.0, -10.0), Art.BLUE.darkened(0.3), 3.0)
-	draw_arc(head, 44.0, deg_to_rad(205), deg_to_rad(265), 10, Art.BLUE.lightened(0.4), 5.0)
-	var top := head + Vector2(0, -58.0)
-	draw_circle(top, 9.0, Art.INK)
-	draw_circle(top, 6.0, Art.GOLD)
-	return Vector2(c.x + 86.0, 760.0)
+	# the further out the paddle goes from the middle, the more it leans over (pivoting on the hand)
+	var lean := clampf(pad.x / game.base_range(), -1.0, 1.0) * 0.6
+	var tilt := lean + clampf(game.paddle_vel.x * -0.0004, -0.35, 0.35) + sin(game.paddle_wobble * 40.0) * game.paddle_wobble * 0.5
+	var skin := game.paddle_def
+	# while Stretch runs, streaks trail the paddle so it reads as reaching
+	if game.ability_t > 0.0 and game.paddle_def.ability == "stretch":
+		for k in 4:
+			Art.paddle_disc(self, pp - Vector2(signf(pad.x) * (k + 1) * pr * 0.5, 0.0), pr, tilt, 0.12 * alpha, skin)
+	Art.paddle_disc(self, pp, pr, tilt, alpha, skin)
+	Art.glove(self, pp, pr, tilt, alpha, skin.handle)
 
 
 func _fx() -> void:
@@ -445,7 +398,7 @@ func _bonus_ball(b: Dictionary) -> void:
 
 ## Where each incoming ball will cross your paddle plane, in the ball's own colour.
 func _bonus_rings(bo: Bonus) -> void:
-	var pr := Game.PADDLE_R * Cam.scale_at(game.paddle)
+	var pr := game.paddle_r * Cam.scale_at(game.paddle)
 	var pulse := 0.5 + 0.5 * sin(game.time * 12.0)
 	for b in bo.balls:
 		if b.intercept.z > 0.0:

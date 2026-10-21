@@ -28,6 +28,7 @@ Game state is all in `Game`; the views only draw.
 | `phys.gd` | `Phys`: 3D ball sim (gravity, drag, Magnus spin, spin-aware bounce, net), shot solver, `predict`. Shared by the game, the AI, the solver and the bonus rounds. Ball tweaks are static (`Phys.reset_tweaks()`) |
 | `bonus.gd` | `Bonus`: the two bonus rounds (own small simulation, borrows paddle/fx/sound from `Game`) |
 | `balls.gd` | `Balls`: magic ball definitions, prices, shop rolls |
+| `paddles.gd` | `Paddles`: the paddles you can hold (face size, reach, speed, ability, look) and their shop prices |
 | `roster.gd` | `Roster`: the 10 stages (opponent, map, target score, `diff` 0..1, taunts) |
 | `world_view.gd` | draws the court, opponent, balls, player, and the bonus wall/bricks |
 | `hud_view.gd` | draws HUD, intro card, shop, bonus offer/result, game over |
@@ -61,3 +62,11 @@ After each boss (stages 2, 4, 6, 8) the shop leads to an offer card instead of t
 - Match the existing style: tabs, typed vars, `##` doc comments, short comments that explain why.
 - Drawing helpers take the `CanvasItem` as the first argument and must be called from `_draw`.
 - Don't add art files; everything is drawn in code. Sounds are synthesized by `tools/gen_audio.py`.
+
+## Paddle and controls
+
+There is no player body and no walking. The mouse moves the paddle across the whole table (`Game.base_range()`, scaled by the paddle's `reach`); left click lunges; **Space** fires the paddle's ability. A glove (`Art.glove`) holds the handle.
+
+- Abilities, in `Game._ability`: `stretch` widens the reach for a moment (hits made out there are a DIVE, wild but they pay), `focus` slows time (`_ball_time`), `grab` boosts the hit assist (`_assist`). Cooldown and duration are per paddle.
+- `Game.equip_paddle(id)` swaps the held paddle (size, reach, speed, ability). A new run starts with the Classic. `--paddle=<id>` starts a run with another one.
+- The shop's third slot is often a paddle offer (always after stage 1): ids are `paddle:<id>` in `shop_offers`, priced by `Game.offer_price`. Buying one replaces the one you hold.

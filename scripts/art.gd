@@ -112,19 +112,75 @@ static func heart(ci: CanvasItem, c: Vector2, size: float, col: Color) -> void:
 	ci.draw_colored_polygon(pts, col)
 
 
-## Paddle seen end-on from behind the table: round red face, wooden rim, handle hanging below.
-static func paddle_disc(ci: CanvasItem, pos: Vector2, r: float, tilt: float, alpha: float) -> void:
+## Paddle seen end-on from behind the table. `skin` is a Paddles.DEFS entry (colours, handle length, look);
+## none gives the Classic. The face has a sponge texture, the rim is bevelled and the handle is wrapped.
+static func paddle_disc(ci: CanvasItem, pos: Vector2, r: float, tilt: float, alpha: float, skin: Dictionary = {}) -> void:
+	var face: Color = skin.get("face", RED)
+	var rim: Color = skin.get("rim", WOOD)
+	var grip: Color = skin.get("grip", WOOD_DARK)
+	var hl: float = skin.get("handle", 1.0)
+	var look: String = skin.get("look", "classic")
 	ci.draw_set_transform(pos, tilt, Vector2.ONE)
-	ci.draw_circle(Vector2(r * 0.14, r * 0.2), r + 3.0, Color(0, 0, 0, 0.3 * alpha))
-	ci.draw_rect(Rect2(-r * 0.2 - 3.0, r * 0.6, r * 0.4 + 6.0, r * 1.25 + 3.0), Color(INK, alpha))
-	ci.draw_rect(Rect2(-r * 0.2, r * 0.6, r * 0.4, r * 1.25), Color(WOOD, alpha))
-	for i in 4:
-		ci.draw_line(Vector2(-r * 0.2, r * 0.95 + i * r * 0.2), Vector2(r * 0.2, r * 1.05 + i * r * 0.2), Color(WOOD_DARK, alpha), maxf(1.5, r * 0.05))
+	ci.draw_circle(Vector2(r * 0.14, r * 0.22), r + 3.0, Color(0, 0, 0, 0.3 * alpha))
+	# handle: wrapped grip, a shaded side and a flared butt cap
+	var hy := r * 0.55
+	var hh := r * 1.3 * hl
+	ci.draw_rect(Rect2(-r * 0.2 - 3.0, hy, r * 0.4 + 6.0, hh + 3.0), Color(INK, alpha))
+	ci.draw_rect(Rect2(-r * 0.2, hy, r * 0.4, hh), Color(rim, alpha))
+	ci.draw_rect(Rect2(r * 0.04, hy, r * 0.16, hh), Color(0, 0, 0, 0.16 * alpha))
+	var wraps := int(5.0 * hl)
+	for i in wraps:
+		var y := hy + r * 0.3 + i * (hh - r * 0.45) / wraps
+		ci.draw_line(Vector2(-r * 0.2, y), Vector2(r * 0.2, y + r * 0.1), Color(grip, alpha), maxf(2.0, r * 0.09))
+	ci.draw_rect(Rect2(-r * 0.3 - 2.0, hy + hh - r * 0.14 - 2.0, r * 0.6 + 4.0, r * 0.22 + 4.0), Color(INK, alpha))
+	ci.draw_rect(Rect2(-r * 0.3, hy + hh - r * 0.14, r * 0.6, r * 0.22), Color(grip, alpha))
+	if look == "pan":
+		ci.draw_circle(Vector2(0, hy + hh - r * 0.36), r * 0.07, Color(INK, alpha))
+	# bevelled rim: light on top, shade underneath
 	ci.draw_circle(Vector2.ZERO, r + 3.0, Color(INK, alpha))
-	ci.draw_circle(Vector2.ZERO, r, Color(WOOD, alpha))
-	ci.draw_circle(Vector2.ZERO, r * 0.84, Color(RED.darkened(0.25), alpha))
-	ci.draw_circle(Vector2.ZERO, r * 0.8, Color(RED, alpha))
-	ci.draw_arc(Vector2.ZERO, r * 0.62, deg_to_rad(200), deg_to_rad(260), 10, Color(RED.lightened(0.5), alpha), maxf(2.0, r * 0.07))
+	ci.draw_circle(Vector2.ZERO, r, Color(rim, alpha))
+	ci.draw_arc(Vector2.ZERO, r * 0.92, deg_to_rad(20), deg_to_rad(160), 14, Color(0, 0, 0, 0.2 * alpha), r * 0.1)
+	ci.draw_arc(Vector2.ZERO, r * 0.92, deg_to_rad(200), deg_to_rad(340), 14, Color(1, 1, 1, 0.35 * alpha), r * 0.08)
+	# rubber face with a sponge texture
+	ci.draw_circle(Vector2.ZERO, r * 0.84, Color(face.darkened(0.45), alpha))
+	ci.draw_circle(Vector2.ZERO, r * 0.8, Color(face, alpha))
+	ci.draw_circle(Vector2(-r * 0.12, -r * 0.14), r * 0.6, Color(face.lightened(0.25), 0.3 * alpha))
+	var step := r * 0.2
+	for gy in range(-4, 5):
+		for gx in range(-4, 5):
+			var p := Vector2(gx * step + (step * 0.5 if gy % 2 != 0 else 0.0), gy * step * 0.87)
+			if p.length() < r * 0.66:
+				ci.draw_circle(p, maxf(1.0, r * 0.035), Color(face.darkened(0.22), alpha))
+	if look == "pan":
+		ci.draw_arc(Vector2.ZERO, r * 0.5, 0.0, TAU, 24, Color(face.lightened(0.18), alpha), maxf(1.5, r * 0.05))
+		ci.draw_arc(Vector2.ZERO, r * 0.28, 0.0, TAU, 20, Color(face.lightened(0.18), alpha), maxf(1.5, r * 0.05))
+	else:
+		var star := PackedVector2Array()
+		for i in 10:
+			var a := -PI * 0.5 + i * PI / 5.0
+			star.append(Vector2(cos(a), sin(a)) * r * (0.1 if i % 2 == 1 else 0.24))
+		ci.draw_colored_polygon(star, Color(rim.lightened(0.2) if look == "gold" else face.lightened(0.4), 0.85 * alpha))
+	ci.draw_arc(Vector2.ZERO, r * 0.62, deg_to_rad(205), deg_to_rad(255), 10, Color(face.lightened(0.55), alpha), maxf(2.0, r * 0.07))
+	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## A cartoon glove gripping the handle, with a short cuff, so the paddle never floats. `handle` is the
+## skin's handle length. Draw it after the paddle.
+static func glove(ci: CanvasItem, pos: Vector2, r: float, tilt: float, alpha: float, handle: float = 1.0) -> void:
+	var cuff := Color("3a8fd6")
+	var y := r * (0.55 + 1.3 * handle) - r * 0.42
+	ci.draw_set_transform(pos, tilt, Vector2.ONE)
+	ci.draw_rect(Rect2(-r * 0.34 - 3.0, y + r * 0.22, r * 0.68 + 6.0, r * 0.7), Color(INK, alpha))
+	ci.draw_rect(Rect2(-r * 0.34, y + r * 0.22, r * 0.68, r * 0.7), Color(cuff, alpha))
+	ci.draw_rect(Rect2(-r * 0.34, y + r * 0.22, r * 0.68, r * 0.14), Color(cuff.lightened(0.35), alpha))
+	ci.draw_circle(Vector2(0, y), r * 0.4 + 3.0, Color(INK, alpha))
+	ci.draw_circle(Vector2(0, y), r * 0.4, Color(CREAM, alpha))
+	ci.draw_circle(Vector2(r * 0.1, y + r * 0.1), r * 0.28, Color(CREAM.darkened(0.08), alpha))
+	for i in 3:
+		var fy := y - r * 0.14 + i * r * 0.15
+		ci.draw_line(Vector2(-r * 0.32, fy), Vector2(r * 0.32, fy), Color(INK, 0.6 * alpha), maxf(1.5, r * 0.045))
+	ci.draw_circle(Vector2(r * 0.3, y - r * 0.3), r * 0.17 + 2.5, Color(INK, alpha))
+	ci.draw_circle(Vector2(r * 0.3, y - r * 0.3), r * 0.17, Color(CREAM, alpha))
 	ci.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 

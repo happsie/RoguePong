@@ -44,7 +44,7 @@ func _draw_screen() -> void:
 	_banner()
 	_fliers()
 	_balls()
-	_dash_meter()
+	_ability_meter()
 	var st: Dictionary = Roster.STAGES[game.stage]
 	match game.state:
 		Game.S.INTRO:
@@ -83,14 +83,22 @@ func _settings() -> void:
 	Art.text(self, "ESC to close", Vector2(640, 538), 14, Color(1, 1, 1, 0.45))
 
 
-func _dash_meter() -> void:
-	var ready := game.dash_cd <= 0.0
+## The paddle's ability: its name and the key, a bar that refills during the cooldown, and a bright
+## bar that drains while the ability is running.
+func _ability_meter() -> void:
+	var def: Dictionary = game.paddle_def
+	var ready := game.ability_cd <= 0.0
+	var active := game.ability_t > 0.0
 	var x := 1040.0
 	var y := 690.0
-	var fill := 1.0 - game.dash_cd / Game.DASH_COOLDOWN
-	Art.text(self, "DASH", Vector2(x, y - 8), 15, Art.GREEN if ready else Color(1, 1, 1, 0.45), HORIZONTAL_ALIGNMENT_LEFT)
+	var fill := 1.0 - game.ability_cd / float(def.cd)
+	var label := "%s   [SPACE]" % Paddles.ABILITY_NAMES[def.ability]
+	Art.text(self, label, Vector2(x, y - 8), 15, Art.GOLD if active else (Art.GREEN if ready else Color(1, 1, 1, 0.45)), HORIZONTAL_ALIGNMENT_LEFT)
 	draw_rect(Rect2(x - 3, y - 3, 206, 18), Art.INK)
-	draw_rect(Rect2(x, y, 200.0 * fill, 12), Art.GREEN if ready else Art.GOLD.darkened(0.3))
+	if active:
+		draw_rect(Rect2(x, y, 200.0 * game.ability_t / float(def.dur), 12), Art.GOLD)
+	else:
+		draw_rect(Rect2(x, y, 200.0 * fill, 12), Art.GREEN if ready else Art.GOLD.darkened(0.3))
 
 
 ## Hearts for the run's lives, or for the balls you can still drop in a bonus round.
@@ -356,31 +364,27 @@ func _intro(st: Dictionary) -> void:
 ## Drawn inside the card's centred transform, so coordinates are relative to the screen centre.
 func _controls_panel() -> void:
 	var t := game.time
-	Art.vivid(self, Rect2(330, -240, 290, 390), Color("0f4c9a"), Color("0b1f55"), t, 0.15, 20.0)
+	Art.vivid(self, Rect2(330, -240, 290, 330), Color("0f4c9a"), Color("0b1f55"), t, 0.15, 20.0)
 	Art.text(self, "CONTROLS", Vector2(475, -204), 24, Art.GOLD)
 	var label_x := 478.0
-	var rows := [-150.0, -86.0, -22.0, 42.0, 106.0]
+	var rows := [-150.0, -86.0, -22.0, 42.0]
 	var lab := Color(1, 1, 1, 0.95)
-	# walk: A and D take turns being pressed
-	_keycap(Vector2(382, rows[0]), Vector2(46, 46), "A", maxf(0.0, sin(t * 3.0) * 2.0))
-	_keycap(Vector2(436, rows[0]), Vector2(46, 46), "D", maxf(0.0, -sin(t * 3.0) * 2.0))
-	Art.text(self, "WALK", Vector2(label_x + 36, rows[0] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
-	# paddle follows the mouse
-	_mouse(Vector2(408, rows[1]), 0, t)
-	Art.text(self, "PADDLE", Vector2(label_x + 36, rows[1] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
-	Art.text(self, "move mouse", Vector2(label_x + 36, rows[1] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+	# paddle follows the mouse, across the whole table
+	_mouse(Vector2(408, rows[0]), 0, t)
+	Art.text(self, "PADDLE", Vector2(label_x + 36, rows[0] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
+	Art.text(self, "move mouse", Vector2(label_x + 36, rows[0] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
 	# spin: swipe across the ball
-	_mouse(Vector2(408, rows[2]), 1, t)
-	Art.text(self, "SPIN", Vector2(label_x + 36, rows[2] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
-	Art.text(self, "flick as you hit", Vector2(label_x + 36, rows[2] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+	_mouse(Vector2(408, rows[1]), 1, t)
+	Art.text(self, "SPIN", Vector2(label_x + 36, rows[1] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
+	Art.text(self, "flick as you hit", Vector2(label_x + 36, rows[1] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
 	# lunge: left click
-	_mouse(Vector2(408, rows[3]), 2, t)
-	Art.text(self, "LUNGE", Vector2(label_x + 36, rows[3] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
-	Art.text(self, "left click", Vector2(label_x + 36, rows[3] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
-	# dash: space + a direction
-	_keycap(Vector2(400, rows[4]), Vector2(96, 42), "SPACE", maxf(0.0, sin(t * 3.0 + 1.5) * 2.0), 17)
-	Art.text(self, "DASH", Vector2(label_x + 36, rows[4] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
-	Art.text(self, "+ A / D", Vector2(label_x + 36, rows[4] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+	_mouse(Vector2(408, rows[2]), 2, t)
+	Art.text(self, "LUNGE", Vector2(label_x + 36, rows[2] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
+	Art.text(self, "left click", Vector2(label_x + 36, rows[2] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+	# the paddle's ability
+	_keycap(Vector2(400, rows[3]), Vector2(96, 42), "SPACE", maxf(0.0, sin(t * 3.0 + 1.5) * 2.0), 17)
+	Art.text(self, Paddles.ABILITY_NAMES[game.paddle_def.ability], Vector2(label_x + 36, rows[3] + 8), 22, lab, HORIZONTAL_ALIGNMENT_LEFT)
+	Art.text(self, "paddle ability", Vector2(label_x + 36, rows[3] + 28), 14, Color(1, 1, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
 
 
 ## A chunky keycap: ink outline, cream top, darker side. `lit` (0..1) presses it down and makes it glow.
@@ -516,7 +520,7 @@ func _shop() -> void:
 	Art.vivid(self, Rect2(-10, -10, 1300, 740), Color("0f2f7a"), Color("5a1f9a"), game.time, 0.1, 6.0)
 	var bob := sin(game.time * 3.0) * 4.0
 	draw_set_transform(Vector2(640, 86 + bob), sin(game.time * 2.0) * 0.015, Vector2.ONE)
-	Art.text(self, "BALL SHOP", Vector2.ZERO, 64, Art.GOLD)
+	Art.text(self, "SHOP", Vector2.ZERO, 64, Art.GOLD)
 	_reset_tf()
 	Art.text(self, "PLINKS  " + Art.fmt(game.plinks), Vector2(640, 128), 28, Art.GREEN)
 	var mouse := get_global_mouse_position()
@@ -529,23 +533,33 @@ func _shop() -> void:
 			Art.vivid(self, r, Color("2a2f4a"), Color("161a2e"), game.time, 0.0)
 			Art.text(self, "SOLD", r.get_center() + Vector2(0, 10), 36, Color(1, 1, 1, 0.35))
 			continue
-		var price := Balls.price(id, game.shop_ref)
+		var price := game.offer_price(id)
+		var is_pad := Paddles.is_offer(id)
+		var pid := Paddles.strip(id)
+		var tier: int = Paddles.tier(pid) if is_pad else Balls.tier(id)
+		var title: String = Paddles.title(pid) if is_pad else Balls.title(id)
+		var desc: String = Paddles.DEFS[pid].desc if is_pad else Balls.DEFS[id].desc
+		var tint: Color = Paddles.DEFS[pid].face if is_pad else Balls.color(id)
 		var afford := game.plinks >= price
 		var hover := r.has_point(mouse)
 		if hover:
 			r = r.grow(6)
-		var tc: Array = tier_tops[Balls.tier(id)]
+		var tc: Array = tier_tops[tier]
 		var top_c: Color = tc[0]
 		var bot_c: Color = tc[1]
 		if not afford:
 			top_c = top_c.lerp(Color("3a3f55"), 0.55)
 			bot_c = bot_c.lerp(Color("20243a"), 0.55)
 		Art.vivid(self, r, top_c, bot_c, game.time + i * 0.7, 0.7 if hover and afford else (0.25 if afford else 0.0))
-		draw_rect(Rect2(r.position + Vector2(18, 10), Vector2(r.size.x - 36, 6)), tier_cols[Balls.tier(id)])
+		draw_rect(Rect2(r.position + Vector2(18, 10), Vector2(r.size.x - 36, 6)), tier_cols[tier])
 		draw_circle(Vector2(r.get_center().x, r.position.y + 62), 46.0 + 3.0 * sin(game.time * 3.0 + i), Color(1, 1, 1, 0.14))
-		_ball_icon(Vector2(r.get_center().x, r.position.y + 62), 32.0, id)
-		Art.text(self, Balls.title(id).to_upper(), Vector2(r.get_center().x, r.position.y + 134), 26, Balls.color(id).lightened(0.5))
-		var lines: PackedStringArray = str(Balls.DEFS[id].desc).split("\n")
+		if is_pad:
+			Art.paddle_disc(self, Vector2(r.get_center().x, r.position.y + 44 + sin(game.time * 3.0 + i) * 3.0), 25.0, sin(game.time * 2.0 + i) * 0.15, 1.0, Paddles.DEFS[pid])
+			Art.text(self, "PADDLE", r.position + Vector2(22, 40), 15, Color(1, 1, 1, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
+		else:
+			_ball_icon(Vector2(r.get_center().x, r.position.y + 62), 32.0, id)
+		Art.text(self, title.to_upper(), Vector2(r.get_center().x, r.position.y + 134), 26 if title.length() < 14 else 22, tint.lightened(0.5))
+		var lines: PackedStringArray = desc.split("\n")
 		for k in lines.size():
 			Art.text(self, lines[k], Vector2(r.get_center().x, r.position.y + 166 + k * 22), 17, Color(1, 1, 1, 0.8))
 		Art.text(self, "%s PLINKS" % Art.fmt(price), Vector2(r.get_center().x, r.end.y - 22), 24, Art.GOLD.lightened(0.25) if afford else Art.RED.lightened(0.2))
@@ -669,7 +683,7 @@ func _bonus_screen() -> void:
 	Art.text(self, big, Vector2(640, 68), 30, Art.GOLD.lightened(0.2))
 	draw_rect(Rect2(462, 78, 356, 16), Art.INK)
 	draw_rect(Rect2(465, 81, 350.0 * clampf(frac, 0.0, 1.0), 10), Art.GREEN.lightened(0.2))
-	_dash_meter()
+	_ability_meter()
 	if game.state == Game.S.BONUS and bo.t < Bonus.INTRO:
 		var a := clampf((Bonus.INTRO - bo.t) / 0.4, 0.0, 1.0)
 		var s := 1.0 + 0.5 * exp(-bo.t * 9.0)
