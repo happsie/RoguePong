@@ -238,7 +238,7 @@ func _ball() -> void:
 func _player() -> void:
 	var pad := game.paddle
 	var pp := Cam.project(pad)
-	var pr := Game.PADDLE_R * Cam.scale_at(pad)
+	var pr := game.paddle_r * Cam.scale_at(pad)
 	if game.intercept.z > 0.0:
 		var ic := Cam.project(Vector3(game.intercept.x, game.intercept.y, Game.PADDLE_Z))
 		var pulse := 0.5 + 0.5 * sin(game.time * 12.0)
