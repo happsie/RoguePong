@@ -150,9 +150,6 @@ static func goof(ci: CanvasItem, pos: Vector2, r: float, ch: Dictionary, look: V
 	var c := pos + Vector2(0, sin(t * 3.0 + pos.x) * 3.0)
 	var squash := 1.0 + sin(t * 6.0) * 0.03
 	var bc := c + Vector2(0, r * 1.25)
-	if acc == "surfer":
-		_surfer(ci, c, r, ch, look, mood, t)
-		return
 	if acc == "vampire":
 		var cape := PackedVector2Array([c + Vector2(-r * 1.55, r * 2.3), c + Vector2(-r * 0.95, r * 0.2), c + Vector2(r * 0.95, r * 0.2), c + Vector2(r * 1.55, r * 2.3)])
 		ci.draw_colored_polygon(cape, INK)
@@ -319,74 +316,6 @@ static func goof(ci: CanvasItem, pos: Vector2, r: float, ch: Dictionary, look: V
 		ci.draw_arc(c, r * 1.06, deg_to_rad(205), deg_to_rad(250), 10, Color(1, 1, 1, 0.8), 6.0)
 		ci.draw_rect(Rect2(c.x - r * 0.7, c.y + r * 1.08, r * 1.4, r * 0.16), INK)
 		ci.draw_rect(Rect2(c.x - r * 0.66, c.y + r * 1.1, r * 1.32, r * 0.1), Color("c9d3e0"))
-
-
-static func _limb(ci: CanvasItem, a: Vector2, b: Vector2, w: float, col: Color) -> void:
-	ci.draw_line(a, b, col, w)
-	ci.draw_circle(a, w * 0.5, col)
-	ci.draw_circle(b, w * 0.5, col)
-
-
-## Paper-cut Surfer Dude: flat pieces with a soft shadow, no outlines, round mitten hands. `c` is the head
-## centre and `r` the head radius. The paddle arm is drawn by the world view, so only the waving arm is here.
-static func _surfer(ci: CanvasItem, c: Vector2, r: float, ch: Dictionary, look: Vector2, mood: float, t: float) -> void:
-	var skin: Color = ch.skin
-	var skin_dark := skin.darkened(0.12)
-	var shirt: Color = ch.shirt
-	var hair: Color = ch.hair
-	var shade := Color(0, 0, 0, 0.24)
-	var dark := Color("3b2a3a")
-	var sh := Vector2(0, r * 0.15)
-	# waving arm, plain round hand
-	var lh := c + Vector2(-r * 2.0, r * 0.65 + sin(t * 5.0) * r * 0.1)
-	_limb(ci, c + Vector2(-r * 1.3, r * 1.75) + sh, lh + sh, r * 0.4, shade)
-	_limb(ci, c + Vector2(-r * 1.3, r * 1.75), lh, r * 0.4, skin)
-	ci.draw_circle(lh + sh, r * 0.34, shade)
-	ci.draw_circle(lh, r * 0.34, skin)
-	# neck and torso
-	ci.draw_rect(Rect2(c.x - r * 0.28, c.y + r * 0.7, r * 0.56, r * 0.5), skin_dark)
-	var torso := PackedVector2Array([c + Vector2(-r * 1.55, r * 2.9), c + Vector2(-r * 1.4, r * 1.6), c + Vector2(-r * 0.6, r), c + Vector2(r * 0.6, r), c + Vector2(r * 1.4, r * 1.6), c + Vector2(r * 1.55, r * 2.9)])
-	var torso_sh := PackedVector2Array()
-	for p in torso:
-		torso_sh.append(p + sh)
-	ci.draw_colored_polygon(torso_sh, shade)
-	ci.draw_colored_polygon(torso, shirt)
-	ci.draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.6, r), c + Vector2(r * 0.6, r), c + Vector2(0, r * 1.9)]), skin)
-	for f in [Vector2(-0.95, 2.1), Vector2(0.9, 2.3), Vector2(-0.35, 2.6), Vector2(0.4, 1.75)]:
-		ci.draw_circle(c + f * r, r * 0.2, CREAM)
-		ci.draw_circle(c + f * r, r * 0.08, GOLD)
-	ci.draw_circle(c + Vector2(-r * 1.3, r * 1.7), r * 0.5, shirt)
-	ci.draw_circle(c + Vector2(r * 1.3, r * 1.7), r * 0.5, shirt)
-	# ears and head
-	for s in [-1.0, 1.0]:
-		ci.draw_circle(c + Vector2(s * r * 0.97, r * 0.1), r * 0.2, skin_dark)
-	ci.draw_circle(c + sh, r, shade)
-	ci.draw_circle(c, r, skin)
-	# bleached swoosh of hair
-	var hp := PackedVector2Array()
-	for p in [Vector2(-1.0, -0.1), Vector2(-1.05, -0.65), Vector2(-0.8, -1.4), Vector2(-0.45, -0.95), Vector2(-0.2, -1.65), Vector2(0.1, -1.0), Vector2(0.5, -1.55), Vector2(0.65, -0.9), Vector2(1.05, -1.1), Vector2(1.0, -0.1), Vector2(0.7, -0.55), Vector2(0.05, -0.62), Vector2(-0.7, -0.55)]:
-		hp.append(c + p * r + Vector2(0, sin(t * 4.0 + p.x * 3.0) * r * 0.03 if p.y < -0.9 else 0.0))
-	ci.draw_colored_polygon(hp, hair)
-	# sunglasses: one bar, two lenses, glints that slide towards the ball
-	var d := (look - c).limit_length(80.0) / 80.0
-	ci.draw_line(c + Vector2(-r * 0.8, -r * 0.02), c + Vector2(r * 0.8, -r * 0.02), dark, r * 0.1)
-	for s in [-1.0, 1.0]:
-		var lens := c + Vector2(s * r * 0.38, r * 0.04)
-		ellipse(ci, lens, r * 0.33, r * 0.25, dark)
-		ellipse(ci, lens + Vector2(-r * 0.12, -r * 0.08) + d * r * 0.07, r * 0.1, r * 0.06, Color(1, 1, 1, 0.55))
-	# nose, cheeks and mouth
-	ci.draw_circle(c + Vector2(0, r * 0.33), r * 0.11, skin_dark)
-	for s in [-1.0, 1.0]:
-		ci.draw_circle(c + Vector2(s * r * 0.62, r * 0.42), r * 0.13, Color(0.94, 0.4, 0.35, 0.4))
-	var m := c + Vector2(0, r * 0.52)
-	if mood > 0.2:
-		ellipse(ci, m, r * 0.34, r * 0.22, dark)
-		ellipse(ci, m + Vector2(0, r * 0.1), r * 0.2, r * 0.1, Color("ff6b8a"))
-	elif mood < -0.2:
-		ellipse(ci, m + Vector2(0, r * 0.1), r * 0.18, r * 0.24 + sin(t * 30.0) * 2.0, dark)
-		ci.draw_circle(c + Vector2(r * 0.8, -r * 0.5), r * 0.1, BLUE.lightened(0.5))
-	else:
-		ci.draw_arc(c + Vector2(0, r * 0.38), r * 0.34, deg_to_rad(27), deg_to_rad(153), 12, dark, r * 0.09)
 
 
 ## Round character token. `flip` is the way it faces (+1 right, -1 left); `kind` 0 = headband, 1 = cap.
