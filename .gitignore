@@ -1,3 +1,9 @@
 .godot/
 *.import
 .claude/
+
+# Exported builds
+RoguePong.exe
+RoguePong.console.exe
+RoguePong.pck
+RoguePong.zip
