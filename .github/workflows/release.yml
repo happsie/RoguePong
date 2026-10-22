@@ -1,0 +1,78 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to release, e.g. v0.1.0"
+        required: true
+        type: string
+      prerelease:
+        description: "Mark as pre-release"
+        type: boolean
+        default: false
+
+env:
+  GODOT_VERSION: "4.7.2"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Install Godot and export templates
+        run: |
+          base="https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q godot.zip
+          mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+          chmod +x /usr/local/bin/godot
+          mkdir -p ~/.local/share/godot/export_templates
+          unzip -q templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+
+      - name: Import project
+        run: godot --headless --import || true
+
+      - name: Export Windows
+        run: |
+          mkdir -p build/windows
+          godot --headless --export-release "Windows Desktop" "$PWD/build/windows/RoguePong.exe"
+          (cd build/windows && zip -r ../RoguePong-windows.zip .)
+
+      - name: Export Linux
+        run: |
+          mkdir -p build/linux
+          godot --headless --export-release "Linux" "$PWD/build/linux/RoguePong.x86_64"
+          chmod +x build/linux/RoguePong.x86_64
+          tar -czf build/RoguePong-linux.tar.gz -C build/linux .
+
+      - name: Export macOS
+        run: |
+          godot --headless --export-release "macOS" "$PWD/build/RoguePong-macos.zip"
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          target_commitish: main
+          name: RoguePong ${{ inputs.version }}
+          prerelease: ${{ inputs.prerelease }}
+          generate_release_notes: true
+          body: |
+            Downloads: Windows (.zip), Linux (.tar.gz), macOS (.zip).
+
+            **macOS:** the app is unsigned. Right-click it and choose Open, or run `xattr -cr RoguePong.app` once.
+            **Windows:** SmartScreen may warn; choose "More info" then "Run anyway".
+            **Linux:** extract, then run `./RoguePong.x86_64`.
+          files: |
+            build/RoguePong-windows.zip
+            build/RoguePong-linux.tar.gz
+            build/RoguePong-macos.zip
