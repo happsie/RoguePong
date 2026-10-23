@@ -15,7 +15,7 @@ Godot lives at `C:\Users\njesp\godot\4.7.2-stable\` (use the `_console.exe` for 
   - `--bot` plays by itself, `--stage=N` starts at stage N.
   - `--show=clear|win|lose|shop|victory|settings|over` jumps to a screen.
   - `--show=offer1..4` opens a bonus offer, `--show=bonus1..4` starts a bonus round.
-  - `--shot=<png> --shot-at=<sec>` saves a screenshot and quits. `--ball=<id>` fills the bag with one ball. `--noassist`, `--sloppy=<cm>`, `--nettest`.
+  - `--shot=<png> --shot-at=<sec>` saves a screenshot and quits. `--ball=<id>` fills the bag with one ball. `--streak=N` starts with a win streak. `--noassist`, `--sloppy=<cm>`, `--nettest`.
 - Headless bot runs: add `--fixed-fps 60` to run faster than real time.
 
 ## Architecture
@@ -42,7 +42,7 @@ Coordinates: centimetres. x lateral, y height above the table, z along the table
 - Opponent difficulty comes from `Roster` `diff` (reaction time, speed, miss chance, wide shots), set in `Game._begin_stage`.
 - Score a rally = Power x Heat. Heat starts at `Game.base_heat()` (1.0 plus permanent bonus Heat).
 - **Smash falloff:** each smash in the same rally pays 60% of the previous one (`SMASH_FALLOFF`, floor `SMASH_FLOOR`).
-- Plinks (currency) come from banked points, capped per stage; spent in the ball shop between stages.
+- Plinks (currency) pay per rally won, not per point value: `PLINK_BASE` x stage target x a win-streak multiplier (+0.5 per consecutive win, max x4), so luck in rally length doesn't matter. The streak carries across stages, resets on a lost rally or a new run. Capped per stage (`PLINK_CAP`); spent in the ball shop between stages. The HUD shows the streak as a burning ball under the wallet (hover for upcoming payouts).
 - **Lives carry over between stages** (start 3, max `MAX_LIVES` = 5). They only reset on a new run.
 - The serve hovers for a random 0.7-1.7s and its aim and angle are randomised, so it can't be timed.
 
@@ -54,7 +54,7 @@ After each boss (stages 2, 4, 6, 8) the shop leads to an offer card instead of t
 - Skip: +`BONUS_SKIP_HEAT` (0.25) permanent base Heat.
 - Fail (drop 3 balls): nothing. Bonus tries are `Bonus.tries`, separate from the run's lives.
 - States: `BONUS_OFFER`, `BONUS`, `BONUS_END`. `Bonus` calls back `Game._bonus_end(won)`.
-- Balls move through phases `OUT` (to the wall), `HELD` (parked at the wall, then fired by a solved shot), `IN` (towards you). Multiball staggers arrivals with a fire time; Break the Table damages bricks where the ball hits the wall.
+- Balls move through phases `OUT` (to the wall), `HELD` (parked at the wall, then fired by a solved shot), `IN` (towards you). Multiball staggers arrivals with a fire time; Break the Table damages bricks where the ball hits the wall; bricks with a gap under them fall (`Bonus._settle` sets the settled row `r` that balls hit, `_fall` animates the drawn height `y` with `BRICK_GRAVITY`).
 - Tuning constants are at the top of `bonus.gd` (`HARD_SPEED`, `BRICK_H`, `WALL_HALF`, `MAX_BALLS`, goals) and `game.gd` (`BONUS_*`). The bonus rounds were verified with the bot and screenshots only. Break the Table's difficulty for a human is untested.
 
 ## Conventions

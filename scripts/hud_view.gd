@@ -511,6 +511,57 @@ func _clear() -> void:
 	_reset_tf()
 
 
+## Win streak under the wallet: a ball with the streak inside that catches fire as it grows.
+## Hover it to see what the next rallies pay.
+func _streak_chip() -> void:
+	var r := Rect2(986, 216, 274, 88)
+	var n: int = game.win_streak
+	var hot := n > 0
+	var heat := clampf(n / 8.0, 0.0, 1.0)
+	var c := Vector2(1036, 268 + sin(game.time * 5.0) * (1.0 + heat * 2.0))
+	var rad := 24.0
+	if n >= 2:
+		# flames: more and taller tongues the longer the streak, red outside, yellow core, white-hot at the top
+		var tongues := mini(4 + n, 13)
+		var tall := rad * (0.55 + 0.1 * minf(n, 10.0))
+		for layer in 3:
+			var col := [Art.RED, Art.GOLD.lerp(Art.RED, 0.45), Color("fff1a8")][layer] as Color
+			var k := 1.0 - layer * 0.28
+			for i in tongues:
+				var a := lerpf(-PI * 0.97, -PI * 0.03, (i + 0.5) / tongues)
+				var flick := 0.72 + 0.28 * sin(game.time * 11.0 + i * 1.9 + layer)
+				var dir := Vector2(cos(a), sin(a))
+				var side := Vector2(-dir.y, dir.x)
+				var base := c + dir * rad * 0.8
+				var w := rad * 0.52 * k
+				var tip := c + dir * (rad + tall * k * flick) + Vector2(sin(game.time * 7.0 + i) * 3.0, -tall * 0.25 * k)
+				draw_colored_polygon(PackedVector2Array([base - side * w, tip, base + side * w]), col)
+	var body := Color(0.9, 0.9, 0.86).lerp(Color("ff9a3c"), heat * 0.7) if hot else Color(0.55, 0.55, 0.55)
+	draw_circle(c, rad + 2.0, Art.INK)
+	draw_circle(c, rad, body)
+	draw_circle(c + Vector2(-7, -8), 4.0, Color(1, 1, 1, 0.5))
+	# drawn twice, a pixel apart, so the number reads bold against the ball
+	var ns := 34 if n < 10 else 28
+	for dx in [-0.7, 0.7]:
+		Art.text(self, str(n), c + Vector2(dx, ns * 0.35), ns, Art.INK)
+	Art.text(self, "WIN STREAK", Vector2(1074, 244), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	Art.text(self, "x%.1f" % game.streak_mult(n), Vector2(1074, 283), 38, Art.GOLD.lerp(Art.RED.lightened(0.2), heat) if hot else Color(1, 1, 1, 0.6), HORIZONTAL_ALIGNMENT_LEFT)
+	Art.text(self, "NEXT WIN  +%d" % game.rally_plinks(n + 1), Vector2(1074, 300), 16, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	if not r.has_point(get_global_mouse_position()):
+		return
+	var tip_r := Rect2(986, 310, 274, 112)
+	draw_rect(tip_r, Color(0.04, 0.04, 0.1, 0.92))
+	draw_rect(tip_r, Art.GOLD, false, 2.0)
+	Art.text(self, "PLINKS PER RALLY WON", Vector2(998, 334), 16, Art.CREAM, HORIZONTAL_ALIGNMENT_LEFT)
+	for i in 3:
+		var m := n + 1 + i
+		var nxt := i == 0
+		var tc := Art.GOLD if nxt else Color(1, 1, 1, 0.75)
+		Art.text(self, "%s  x%.1f" % ["NEXT" if nxt else "STREAK %d" % m, game.streak_mult(m)], Vector2(998, 360 + i * 24), 16, tc, HORIZONTAL_ALIGNMENT_LEFT)
+		Art.text(self, "+%d" % game.rally_plinks(m), Vector2(1248, 360 + i * 24), 16, tc, HORIZONTAL_ALIGNMENT_RIGHT)
+	Art.text(self, "LOSE A RALLY = BACK TO x1.0", Vector2(998, 412), 13, Color(1, 1, 1, 0.55), HORIZONTAL_ALIGNMENT_LEFT)
+
+
 ## The wallet, the ball in play and the one coming next.
 func _balls() -> void:
 	var pr := Rect2(986, 164, 274, 46)
@@ -524,6 +575,7 @@ func _balls() -> void:
 	Art.text(self, Art.fmt(game.plinks), Vector2(1244, 197), 28, Art.CREAM, HORIZONTAL_ALIGNMENT_RIGHT)
 	if game.state == Game.S.SHOP or game.state == Game.S.CLEAR or game.state == Game.S.VICTORY:
 		return
+	_streak_chip()
 	# The ball in play announces itself on the serve banner, so the corner only shows what comes next.
 	var nxt := game.next_ball()
 	var bc := Balls.color(nxt)

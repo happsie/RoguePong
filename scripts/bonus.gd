@@ -32,6 +32,8 @@ const BRICK_H := 9.0
 const WALL_TOP := 56.0
 ## A ball faster than this at the wall does double damage to bricks.
 const HARD_SPEED := 420.0
+## How fast loose bricks drop, in rows per second squared (a 3 row fall takes about 0.3s).
+const BRICK_GRAVITY := 70.0
 const BALL_COLS := [Color("eac058"), Color("fe5f55"), Color("009dff"), Color("4bc292"), Color("ff6bd6")]
 
 var game: Game
@@ -79,7 +81,8 @@ func _build_wall() -> void:
 	bricks.clear()
 	for r in ROWS:
 		for c in COLS:
-			bricks.append({"c": c, "r": r, "hp": 1, "kind": Brick.NORMAL, "flash": 0.0})
+			# r is the settled row (what a ball hits); y is the height it is drawn at while it falls into r.
+			bricks.append({"c": c, "r": r, "y": float(r), "vy": 0.0, "row0": r, "hp": 1, "kind": Brick.NORMAL, "flash": 0.0})
 	var slots: Array = range(bricks.size())
 	slots.shuffle()
 	for i in 3:
@@ -105,7 +108,46 @@ func bricks_left() -> int:
 
 
 func brick_center(b: Dictionary) -> Vector3:
-	return Vector3(-WALL_HALF + (b.c + 0.5) * BRICK_W, (b.r + 0.5) * BRICK_H, FRONT_Z)
+	return Vector3(-WALL_HALF + (b.c + 0.5) * BRICK_W, (b.y + 0.5) * BRICK_H, FRONT_Z)
+
+
+## Index of the live brick in this column and settled row, or -1.
+func _brick_at(c: int, r: int) -> int:
+	for i in bricks.size():
+		var b := bricks[i]
+		if b.hp > 0 and b.c == c and b.r == r:
+			return i
+	return -1
+
+
+## Bricks with nothing under them drop to fill the gap, so clearing the bottom brings the top down.
+func _settle() -> void:
+	for c in COLS:
+		var col: Array[Dictionary] = []
+		for b in bricks:
+			if b.hp > 0 and b.c == c:
+				col.append(b)
+		col.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.r < b.r)
+		for i in col.size():
+			col[i].r = i
+
+
+## Gravity on the drawn height of each brick, down to its settled row.
+func _fall(delta: float) -> void:
+	var landed := false
+	for b in bricks:
+		if b.hp <= 0 or b.y <= b.r:
+			continue
+		b.vy += BRICK_GRAVITY * delta
+		b.y -= b.vy * delta
+		if b.y <= b.r:
+			b.y = float(b.r)
+			b.vy = 0.0
+			b.flash = maxf(b.flash, 0.5)
+			landed = true
+	if landed:
+		Audio.play("wall", 1.3)
+		game.shake = maxf(game.shake, 3.0)
 
 
 # ---------------------------------------------------------------------------------------------
@@ -194,6 +236,7 @@ func update(delta: float) -> void:
 	wall_flash = maxf(0.0, wall_flash - delta * 3.0)
 	for br in bricks:
 		br.flash = maxf(0.0, br.flash - delta * 4.0)
+	_fall(delta)
 	acc += delta
 	while acc >= Phys.DT and not finished:
 		acc -= Phys.DT
@@ -336,8 +379,8 @@ func _hit_bricks(ball: Phys.Ball) -> void:
 	var c := floori((ball.p.x + WALL_HALF) / BRICK_W)
 	var r := floori(ball.p.y / BRICK_H)
 	var hard := ball.v.length() > HARD_SPEED
-	var idx := c + r * COLS
-	if c < 0 or c >= COLS or r < 0 or r >= ROWS or bricks[idx].hp <= 0:
+	var idx := _brick_at(c, r)
+	if idx < 0:
 		Audio.play("wall")
 		_popup("THUNK", Cam.project(ball.p) + Vector2(0.0, -40.0), Color(1, 1, 1, 0.8), 24)
 		return
@@ -351,6 +394,7 @@ func _hit_bricks(ball: Phys.Ball) -> void:
 		_popup("CRACK", Cam.project(brick_center(br)) + Vector2(0.0, -40.0), Art.CREAM, 28)
 		return
 	_break(idx)
+	_settle()
 	if bricks_left() == 0:
 		_finish(true)
 
@@ -373,10 +417,9 @@ func _break(idx: int) -> void:
 			for dc in range(-1, 2):
 				var nc: int = br.c + dc
 				var nr: int = br.r + dr
-				if nc < 0 or nc >= COLS or nr < 0 or nr >= ROWS:
-					continue
-				if bricks[nc + nr * COLS].hp > 0:
-					_break(nc + nr * COLS)
+				var ni := _brick_at(nc, nr)
+				if ni >= 0:
+					_break(ni)
 
 
 static func brick_color(br: Dictionary) -> Color:
@@ -384,7 +427,7 @@ static func brick_color(br: Dictionary) -> Color:
 		return Color("ff5a2a")
 	if br.kind == Brick.TOUGH:
 		return Color("9aa7b8")
-	return [Color("4bc292"), Color("009dff"), Color("eac058"), Color("c06bff")][br.r % 4]
+	return [Color("4bc292"), Color("009dff"), Color("eac058"), Color("c06bff")][br.get("row0", br.r) % 4]
 
 
 # ---------------------------------------------------------------------------------------------

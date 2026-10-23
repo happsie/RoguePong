@@ -154,13 +154,19 @@ var target := 0
 var run_score := 0
 # Magic balls (see Balls): a bag you own, a shuffled draw pile, and the ball in play this rally.
 # Plinks are the wallet: every point you bank also pays out as Plinks, which you spend in the shop.
-# Plinks come from banked points but are throttled: PLINK_RATE of each rally, and at most PLINK_CAP
-# times the stage target per stage. Shop prices are shares of that target too, so a huge score can't
-# buy out the shop.
-const PLINK_RATE := 0.3
-const PLINK_CAP := 1.2
+# Plinks pay per rally won, not per point value, so luck in how long a rally runs doesn't matter.
+# A rally pays PLINK_BASE of the stage target, times a win-streak multiplier that grows by
+# PLINK_STREAK_STEP per consecutive rally won (up to PLINK_STREAK_MAX). Losing a rally resets the
+# streak. The streak carries over between stages (stages are only a few rallies long) and resets on a
+# new run. At most PLINK_CAP times the target per stage. Shop prices are shares of that target too,
+# so a huge score can't buy out the shop.
+const PLINK_BASE := 0.12
+const PLINK_STREAK_STEP := 0.5
+const PLINK_STREAK_MAX := 4.0
+const PLINK_CAP := 1.5
 var plinks := 0
 var stage_plinks := 0
+var win_streak := 0
 var bag: Array[String] = []
 var draw_pile: Array[String] = []
 var cur := Balls.PLAIN
@@ -170,6 +176,8 @@ var assist_mul := 1.0
 var test_ball := ""
 ## Dev: `--paddle=<id>` starts the run holding that paddle.
 var test_paddle := ""
+## Dev: `--streak=<n>` starts the run with that win streak, to see the streak ball burn.
+var test_streak := 0
 var shop_offers: Array[String] = []
 var shop_ref := 100
 var shop_rerolls := 0
@@ -211,6 +219,8 @@ func _ready() -> void:
 			test_paddle = a.substr(9)
 		elif a.begins_with("--ball="):
 			test_ball = a.substr(7)
+		elif a.begins_with("--streak="):
+			test_streak = int(a.substr(9))
 		elif a == "--noassist":
 			hit_assist = false
 		elif a.begins_with("--sloppy="):
@@ -529,6 +539,7 @@ func _bonus_end(won: bool) -> void:
 
 func _reset_bag() -> void:
 	plinks = 0
+	win_streak = test_streak
 	bag.clear()
 	for i in Balls.START_BAG:
 		bag.append(test_ball if Balls.DEFS.has(test_ball) else Balls.PLAIN)
@@ -1161,6 +1172,16 @@ func _ball_dead() -> void:
 		_end_point(last_hitter, "")
 
 
+## Payout multiplier on the flat rally pay for the n-th rally won in a row.
+func streak_mult(n: int) -> float:
+	return minf(1.0 + PLINK_STREAK_STEP * (maxi(n, 1) - 1), PLINK_STREAK_MAX)
+
+
+## Plinks the n-th rally won in a row pays (before the per-stage cap).
+func rally_plinks(n: int) -> int:
+	return maxi(1, roundi(target * PLINK_BASE * streak_mult(n)))
+
+
 func _end_point(winner: int, why: String) -> void:
 	# A shot that dies on the hitter's own side is either a net hit or simply a short ball: say which.
 	if why == "own_side" or why == "their_side":
@@ -1173,7 +1194,7 @@ func _end_point(winner: int, why: String) -> void:
 	banner_sub = why
 	freeze = 0.1
 	if bot:
-		print("point -> %s  %s  returns=%d  power=%d heat=%.1f" % ["PLAYER" if winner == Who.PLAYER else "OPP", why, returns, power, heat])
+		print("point -> %s  %s  returns=%d  power=%d heat=%.1f  streak=%d stage_plinks=%d" % ["PLAYER" if winner == Who.PLAYER else "OPP", why, returns, power, heat, win_streak, stage_plinks])
 	if winner == Who.PLAYER:
 		var mult := 1.0
 		if cur == "gambler":
@@ -1184,10 +1205,12 @@ func _end_point(winner: int, why: String) -> void:
 			lives += 1
 			banner_sub = "VAMPIRE  +1 LIFE"
 		score += bank
-		var gain := clampi(int(bank * PLINK_RATE), 0, maxi(0, int(target * PLINK_CAP) - stage_plinks))
+		win_streak += 1
+		var gain := clampi(rally_plinks(win_streak), 0, maxi(0, int(target * PLINK_CAP) - stage_plinks))
 		plinks += gain
 		stage_plinks += gain
-		banner_sub = (banner_sub + "   -   " if banner_sub != "" else "") + "+%d PLINKS" % gain
+		var streak_txt := "   (STREAK x%d)" % win_streak if win_streak > 1 else ""
+		banner_sub = (banner_sub + "   -   " if banner_sub != "" else "") + "+%d PLINKS%s" % [gain, streak_txt]
 		best = maxi(best, run_score + score)
 		banner = "+" + Art.fmt(bank)
 		banner_count = bank
@@ -1211,6 +1234,7 @@ func _end_point(winner: int, why: String) -> void:
 		disp_power = power
 		disp_heat = heat
 	else:
+		win_streak = 0
 		if cur == "phoenix":
 			banner_sub = "PHOENIX  LIFE SAVED"
 		elif cur == "fireball" and fire_lit:

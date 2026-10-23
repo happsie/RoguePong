@@ -329,7 +329,7 @@ func _bricks(bo: Bonus) -> void:
 			continue
 		var x0: float = -Bonus.WALL_HALF + br.c * Bonus.BRICK_W + inset
 		var x1: float = x0 + Bonus.BRICK_W - inset * 2.0
-		var y0: float = br.r * Bonus.BRICK_H + inset
+		var y0: float = br.y * Bonus.BRICK_H + inset
 		var y1: float = y0 + Bonus.BRICK_H - inset * 2.0
 		var zf := Bonus.FRONT_Z
 		var zb := Bonus.WALL_Z
